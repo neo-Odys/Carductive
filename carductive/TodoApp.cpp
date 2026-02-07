@@ -1,0 +1,351 @@
+#include "TodoApp.h"
+
+#include <M5GFX.h>
+#include <SD.h>
+
+#include "Global.h"
+
+extern M5Canvas canvas;
+
+void TodoApp::init() { loadFromSD(); }
+
+bool TodoApp::isTypingMode() { return isTyping; }
+
+void TodoApp::adjustVal(int& field, int delta, int minV, int maxV) {
+  if (selectedIndex >= 0 && selectedIndex < (int)todoList.size()) {
+    if (strcmp(todoList[selectedIndex].text, SEP_TAG) != 0) {
+      field += delta;
+      if (field < minV) field = minV;
+      if (field > maxV) field = maxV;
+      saveToSD();
+    }
+  }
+}
+
+void TodoApp::update() {
+  if (isTyping) {
+    if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+      if (inputBuffer[0] != '\0') addTask(inputBuffer);
+      memset(inputBuffer, 0, sizeof(inputBuffer));
+      isTyping = false;
+    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      int len = strlen(inputBuffer);
+      if (len > 0) inputBuffer[len - 1] = '\0';
+    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ESC) ||
+               M5Cardputer.Keyboard.isKeyPressed('`')) {
+      isTyping = false;
+      memset(inputBuffer, 0, sizeof(inputBuffer));
+    } else {
+      //Type on keyboard
+      for (auto c : M5Cardputer.Keyboard.keysState().word) {
+        int len = strlen(inputBuffer);
+        if (len < 18 && len < (int)sizeof(inputBuffer) - 1) {
+          inputBuffer[len] = c;
+          inputBuffer[len + 1] = '\0';
+        }
+      }
+    }
+    return;
+  }
+
+  if (isReordering) {
+    if (M5Cardputer.Keyboard.isKeyPressed(KEY_ESC) ||
+        M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+      isReordering = false;
+      return;
+    }
+    if (M5Cardputer.Keyboard.isKeyPressed(';')) {
+      moveTask(-1);
+      if (selectedIndex > 0) selectedIndex--;
+    } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
+      moveTask(1);
+      if (selectedIndex < (int)todoList.size() - 1) selectedIndex++;
+    }
+    return;
+  }
+
+  if (M5Cardputer.Keyboard.isKeyPressed('\\')) {
+    isTyping = true;
+    memset(inputBuffer, 0, sizeof(inputBuffer));
+  } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+    if (!todoList.empty()) isReordering = true;
+  } else if (M5Cardputer.Keyboard.isKeyPressed(' ') ||
+             M5Cardputer.Keyboard.isKeyPressed(KEY_TAB)) {
+    toggleDone();
+  } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    deleteTask();
+  } else if (M5Cardputer.Keyboard.isKeyPressed('q'))
+    adjustVal(todoList[selectedIndex].priority, -1, 1, 4);
+  else if (M5Cardputer.Keyboard.isKeyPressed('w'))
+    adjustVal(todoList[selectedIndex].priority, 1, 1, 4);
+  else if (M5Cardputer.Keyboard.isKeyPressed('['))
+    adjustVal(todoList[selectedIndex].urgency, -1, 0, 3);
+  else if (M5Cardputer.Keyboard.isKeyPressed(']'))
+    adjustVal(todoList[selectedIndex].urgency, 1, 0, 3);
+
+  else if (M5Cardputer.Keyboard.isKeyPressed(';')) {
+    if (selectedIndex > 0) selectedIndex--;
+  } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
+    if (selectedIndex < (int)todoList.size() - 1) selectedIndex++;
+  }
+}
+
+void TodoApp::draw() {
+  int listSize = todoList.size();
+
+  canvas.fillRect(0, 0, 240, 20, COL_HEADER_BG);
+  canvas.setTextSize(1.5);
+  canvas.setCursor(5, 5);
+
+  if (isReordering) {
+    canvas.setTextColor(COL_ACCENT);
+    canvas.print("TODO [REORDER]");
+  } else {
+    canvas.setTextColor(COL_TEXT_NORM);
+    canvas.printf("TODO [%d]", listSize > 0 ? listSize - 1 : 0);
+  }
+
+  int visibleItems = 5;
+  int startY = 20;
+
+  //Scroll offset to see selected items
+  int viewOffset =
+      (selectedIndex >= visibleItems) ? selectedIndex - (visibleItems - 1) : 0;
+
+  for (int i = 0; i < visibleItems; i++) {
+    int idx = viewOffset + i;
+    if (idx >= listSize) break;
+
+    int y = startY + (i * 19);
+    TodoItem& item = todoList[idx];
+    bool isSel = (idx == selectedIndex);
+
+    if (isSel)
+      canvas.fillRoundRect(2, y, 236, 17, 3,
+                           isReordering ? COL_ACCENT : COL_HIGHLIGHT);
+
+    if (strcmp(item.text, SEP_TAG) == 0) {
+      canvas.drawFastHLine(10, y + 8, 220, COL_SEPARATOR);
+      if (isSel) canvas.drawFastHLine(10, y + 9, 220, COL_SEPARATOR);
+      continue;
+    }
+
+    uint16_t prioCol =
+        (item.done) ? COL_TEXT_DONE
+                    : (item.priority == 1
+                           ? COL_P1
+                           : (item.priority == 2
+                                  ? COL_P2
+                                  : (item.priority == 3 ? COL_P3 : COL_P4)));
+    uint16_t textCol = item.done ? COL_TEXT_DONE : COL_TEXT_NORM;
+
+    char prefixBuf[8];
+    snprintf(prefixBuf, sizeof(prefixBuf), "%d | ", item.priority);
+
+    int prefixW = canvas.textWidth(prefixBuf);
+    int maxLen = 30 - strlen(prefixBuf);
+
+    char content[64];
+    int textLen = strlen(item.text);
+
+    //Stop typing after maxLen
+    if (textLen > maxLen) {
+      strncpy(content, item.text, maxLen - 2);
+      content[maxLen - 2] = '\0';
+      strcat(content, "..");
+    } else {
+      strcpy(content, item.text);
+    }
+
+    canvas.setTextColor(prioCol);
+    canvas.drawString(prefixBuf, 8, y + 3);
+
+    canvas.setTextColor(textCol);
+    canvas.drawString(content, 8 + prefixW, y + 3);
+
+    if (item.priority == 1 && !item.done) {
+      canvas.setTextColor(prioCol);
+      canvas.drawString(prefixBuf, 9, y + 3);
+      canvas.setTextColor(textCol);
+      canvas.drawString(content, 9 + prefixW, y + 3);
+    }
+
+    if (item.done) {
+      int totalW = prefixW + canvas.textWidth(content);
+      canvas.drawFastHLine(8, y + 8, totalW, COL_TEXT_DONE);
+    }
+
+    if (item.urgency > 0) {
+      for (int d = 0; d < item.urgency; d++) {
+        canvas.fillCircle(225 - (d * 8), y + 8, 2, isSel ? WHITE : COL_ACCENT);
+      }
+    }
+  }
+
+  if (isTyping) {
+    canvas.fillRect(0, 115, 240, 20, COL_HEADER_BG);
+    canvas.setCursor(5, 118);
+    canvas.setTextColor(COL_ACCENT);
+    canvas.printf("> %s_", inputBuffer);
+  } else {
+    //Draw Legend, will be in separate function
+    canvas.fillRect(0, 115, 240, 20, COL_HEADER_BG);
+    canvas.setCursor(5, 121);
+    canvas.setTextSize(1);
+
+    if (isReordering) {
+      canvas.setTextColor(COL_ACCENT);
+      canvas.print("ARROWS");
+      canvas.setTextColor(COL_P4);
+      canvas.print(":Move ");
+
+      canvas.setTextColor(COL_ACCENT);
+      canvas.print("ENT");
+      canvas.setTextColor(COL_P4);
+      canvas.print(":Save");
+    } else {
+      canvas.setTextColor(COL_ACCENT);
+      canvas.print("q/w");
+      canvas.setTextColor(COL_P4);
+      canvas.print(":Prio ");
+
+      canvas.setTextColor(COL_ACCENT);
+      canvas.print("[]");
+      canvas.setTextColor(COL_P4);
+      canvas.print(":Urg ");
+
+      canvas.setTextColor(COL_ACCENT);
+      canvas.print("\\");
+      canvas.setTextColor(COL_P4);
+      canvas.print(":New ");
+
+      canvas.setTextColor(COL_ACCENT);
+      canvas.print("SPC");
+      canvas.setTextColor(COL_P4);
+      canvas.print(":Done ");
+
+      canvas.setTextColor(COL_ACCENT);
+      canvas.print("---");
+      canvas.setTextColor(COL_P4);
+      canvas.print(":Line");
+    }
+    canvas.setTextSize(1.5);
+  }
+}
+
+void TodoApp::saveToSD() {
+  File f = SD.open(DATA_PATH "/todo.bin", FILE_WRITE);
+  if (f) {
+    for (const auto& item : todoList) {
+      f.write((const uint8_t*)&item, sizeof(TodoItem));
+    }
+    f.close();
+  }
+}
+
+void TodoApp::loadFromSD() {
+  todoList.clear();
+
+  if (SD.exists(DATA_PATH "/todo.bin")) {
+    File f = SD.open(DATA_PATH "/todo.bin", FILE_READ);
+    if (f) {
+      TodoItem tempItem;
+      while (f.read((uint8_t*)&tempItem, sizeof(TodoItem)) ==
+             sizeof(TodoItem)) {
+        todoList.push_back(tempItem);
+      }
+      f.close();
+    }
+  }
+
+  //Tutorial todo list
+  if (todoList.empty()) {
+    TodoItem t1;
+    memset(&t1, 0, sizeof(TodoItem));
+    strncpy(t1.text, "Type --- for line", 19);
+    t1.priority = 4;
+    t1.urgency = 0;
+    t1.done = false;
+    todoList.push_back(t1);
+
+    TodoItem t2;
+    memset(&t2, 0, sizeof(TodoItem));
+    strncpy(t2.text, "---", 19);
+    t2.priority = 4;
+    t2.urgency = 0;
+    t2.done = false;
+    todoList.push_back(t2);
+
+    TodoItem t3;
+    memset(&t3, 0, sizeof(TodoItem));
+    strncpy(t3.text, "Priority: q / w", 19);
+    t3.priority = 2;
+    t3.urgency = 0;
+    t3.done = false;
+    todoList.push_back(t3);
+
+    TodoItem t4;
+    memset(&t4, 0, sizeof(TodoItem));
+    strncpy(t4.text, "Urgency: [ / ]", 19);
+    t4.priority = 4;
+    t4.urgency = 2;
+    t4.done = false;
+    todoList.push_back(t4);
+
+    TodoItem t5;
+    memset(&t5, 0, sizeof(TodoItem));
+    strncpy(t5.text, "New: \\ ,Done: Spc", 19);
+    t5.priority = 3;
+    t5.urgency = 0;
+    t5.done = false;
+    todoList.push_back(t5);
+
+    TodoItem t6;
+    memset(&t6, 0, sizeof(TodoItem));
+    strncpy(t6.text, "Move: Enter", 19);
+    t6.priority = 4;
+    t6.urgency = 0;
+    t6.done = false;
+    todoList.push_back(t6);
+
+    saveToSD();
+  }
+}
+
+void TodoApp::addTask(const char* text) {
+  if (text == nullptr || text[0] == '\0') return;
+  TodoItem newItem;
+  strncpy(newItem.text, text, sizeof(newItem.text) - 1);
+  newItem.text[sizeof(newItem.text) - 1] = '\0';
+  newItem.priority = 4;
+  newItem.urgency = 0;
+  newItem.done = false;
+
+  todoList.push_back(newItem);
+  saveToSD();
+}
+
+void TodoApp::deleteTask() {
+  if (selectedIndex >= 0 && selectedIndex < (int)todoList.size()) {
+    todoList.erase(todoList.begin() + selectedIndex);
+    if (selectedIndex >= (int)todoList.size() && selectedIndex > 0)
+      selectedIndex--;
+    saveToSD();
+  }
+}
+
+void TodoApp::toggleDone() {
+  if (selectedIndex >= 0 && selectedIndex < (int)todoList.size()) {
+    if (strcmp(todoList[selectedIndex].text, SEP_TAG) == 0) return;
+    todoList[selectedIndex].done = !todoList[selectedIndex].done;
+    saveToSD();
+  }
+}
+
+void TodoApp::moveTask(int direction) {
+  int n = selectedIndex + direction;
+  if (n >= 0 && n < (int)todoList.size()) {
+    std::swap(todoList[selectedIndex], todoList[n]);
+    saveToSD();
+  }
+}
