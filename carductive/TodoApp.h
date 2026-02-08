@@ -24,6 +24,7 @@ class TodoApp {
   int selectedIndex = 0;
   bool isTyping = false;
   bool isReordering = false;
+  bool showLegend = false;
 
   char inputBuffer[64] = {0};
   const char* SEP_TAG = "---";
@@ -34,7 +35,11 @@ class TodoApp {
   void moveTask(int direction);
   void deleteTask();
   void toggleDone();
-
+  void removeDoneTasks();
+  void sortByPriority();
+  void sortByUrgency();
+  
+  void drawLegendScreen();
   void adjustVal(int& field, int delta, int minV, int maxV);
 };
 

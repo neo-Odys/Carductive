@@ -2,6 +2,7 @@
 
 #include <M5GFX.h>
 #include <SD.h>
+#include <algorithm>
 
 #include "Global.h"
 
@@ -23,6 +24,15 @@ void TodoApp::adjustVal(int& field, int delta, int minV, int maxV) {
 }
 
 void TodoApp::update() {
+  // Legend logic
+  if (showLegend) {
+    if (M5Cardputer.Keyboard.isKeyPressed('l') ||
+        M5Cardputer.Keyboard.isKeyPressed('`')) {
+      showLegend = false;
+    }
+    return;
+  }
+
   if (isTyping) {
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
       if (inputBuffer[0] != '\0') addTask(inputBuffer);
@@ -31,12 +41,11 @@ void TodoApp::update() {
     } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
       int len = strlen(inputBuffer);
       if (len > 0) inputBuffer[len - 1] = '\0';
-    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ESC) ||
-               M5Cardputer.Keyboard.isKeyPressed('`')) {
+    } else if (M5Cardputer.Keyboard.isKeyPressed('`')) {
       isTyping = false;
       memset(inputBuffer, 0, sizeof(inputBuffer));
     } else {
-      //Type on keyboard
+      // Type on keyboard
       for (auto c : M5Cardputer.Keyboard.keysState().word) {
         int len = strlen(inputBuffer);
         if (len < 18 && len < (int)sizeof(inputBuffer) - 1) {
@@ -49,8 +58,7 @@ void TodoApp::update() {
   }
 
   if (isReordering) {
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_ESC) ||
-        M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+    if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
       isReordering = false;
       return;
     }
@@ -74,6 +82,14 @@ void TodoApp::update() {
     toggleDone();
   } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
     deleteTask();
+  } else if (M5Cardputer.Keyboard.isKeyPressed('l')) {
+    showLegend = true;
+  } else if (M5Cardputer.Keyboard.isKeyPressed('c')) {
+    removeDoneTasks();
+  } else if (M5Cardputer.Keyboard.isKeyPressed('p')) {  // Dodaj to
+    sortByPriority();
+  } else if (M5Cardputer.Keyboard.isKeyPressed('u')) {  // Dodaj to
+    sortByUrgency();
   } else if (M5Cardputer.Keyboard.isKeyPressed('q'))
     adjustVal(todoList[selectedIndex].priority, -1, 1, 4);
   else if (M5Cardputer.Keyboard.isKeyPressed('w'))
@@ -91,6 +107,11 @@ void TodoApp::update() {
 }
 
 void TodoApp::draw() {
+  if (showLegend) {
+    drawLegendScreen();
+    return;
+  }
+
   int listSize = todoList.size();
 
   canvas.fillRect(0, 0, 240, 20, COL_HEADER_BG);
@@ -105,10 +126,11 @@ void TodoApp::draw() {
     canvas.printf("TODO [%d]", listSize > 0 ? listSize - 1 : 0);
   }
 
-  int visibleItems = 5;
-  int startY = 20;
+  int visibleItems = 6;
+  int startY = 22;
 
-  //Scroll offset to see selected items
+  // Scroll offset to see selected items
+
   int viewOffset =
       (selectedIndex >= visibleItems) ? selectedIndex - (visibleItems - 1) : 0;
 
@@ -147,8 +169,7 @@ void TodoApp::draw() {
 
     char content[64];
     int textLen = strlen(item.text);
-
-    //Stop typing after maxLen
+    // Stop typing after maxLen
     if (textLen > maxLen) {
       strncpy(content, item.text, maxLen - 2);
       content[maxLen - 2] = '\0';
@@ -187,50 +208,70 @@ void TodoApp::draw() {
     canvas.setCursor(5, 118);
     canvas.setTextColor(COL_ACCENT);
     canvas.printf("> %s_", inputBuffer);
-  } else {
-    //Draw Legend, will be in separate function
-    canvas.fillRect(0, 115, 240, 20, COL_HEADER_BG);
-    canvas.setCursor(5, 121);
-    canvas.setTextSize(1);
-
-    if (isReordering) {
-      canvas.setTextColor(COL_ACCENT);
-      canvas.print("ARROWS");
-      canvas.setTextColor(COL_P4);
-      canvas.print(":Move ");
-
-      canvas.setTextColor(COL_ACCENT);
-      canvas.print("ENT");
-      canvas.setTextColor(COL_P4);
-      canvas.print(":Save");
-    } else {
-      canvas.setTextColor(COL_ACCENT);
-      canvas.print("q/w");
-      canvas.setTextColor(COL_P4);
-      canvas.print(":Prio ");
-
-      canvas.setTextColor(COL_ACCENT);
-      canvas.print("[]");
-      canvas.setTextColor(COL_P4);
-      canvas.print(":Urg ");
-
-      canvas.setTextColor(COL_ACCENT);
-      canvas.print("\\");
-      canvas.setTextColor(COL_P4);
-      canvas.print(":New ");
-
-      canvas.setTextColor(COL_ACCENT);
-      canvas.print("SPC");
-      canvas.setTextColor(COL_P4);
-      canvas.print(":Done ");
-
-      canvas.setTextColor(COL_ACCENT);
-      canvas.print("---");
-      canvas.setTextColor(COL_P4);
-      canvas.print(":Line");
-    }
-    canvas.setTextSize(1.5);
   }
+}
+
+void TodoApp::drawLegendScreen() {
+  canvas.fillScreen(COL_BG);
+
+  canvas.fillRect(0, 0, 240, 20, COL_HEADER_BG);
+  canvas.setTextDatum(top_left);
+
+  canvas.setTextSize(1.5);
+  canvas.setCursor(5, 5);
+  canvas.setTextColor(COL_ACCENT);
+  canvas.print("TODO [LEGEND]");
+
+  canvas.setTextSize(1.0);
+  int y = 30;
+  int x1 = 10;
+  int x2 = 160;
+  int lh = 12;
+
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("NAVIGATE", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("; / .", x2, y);
+  y += lh;
+
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("NEW TASK", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("\\", x2, y);
+  y += lh;
+
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("DONE / UNDONE", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("Space", x2, y);
+  y += lh;
+
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("PRIORITY", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("q / w", x2, y);
+  y += lh;
+
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("URGENCY", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("[ / ]", x2, y);
+  y += lh;
+
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("REORDER", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("Enter", x2, y);
+  y += lh;
+
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("CLEAR DONE", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("c", x2, y);
+  y += lh;
+
+  canvas.setTextColor(COL_ACCENT);
+  canvas.drawCenterString("[ Press ESC or L to return ]", 120, 120);
 }
 
 void TodoApp::saveToSD() {
@@ -257,24 +298,11 @@ void TodoApp::loadFromSD() {
       f.close();
     }
   }
+  // Tutorial todo list
 
-  //Tutorial todo list
   if (todoList.empty()) {
-    TodoItem t1;
-    memset(&t1, 0, sizeof(TodoItem));
-    strncpy(t1.text, "Type --- for line", 19);
-    t1.priority = 4;
-    t1.urgency = 0;
-    t1.done = false;
-    todoList.push_back(t1);
-
-    TodoItem t2;
-    memset(&t2, 0, sizeof(TodoItem));
-    strncpy(t2.text, "---", 19);
-    t2.priority = 4;
-    t2.urgency = 0;
-    t2.done = false;
-    todoList.push_back(t2);
+    addTask("Type --- for line");
+    addTask("---");
 
     TodoItem t3;
     memset(&t3, 0, sizeof(TodoItem));
@@ -292,21 +320,11 @@ void TodoApp::loadFromSD() {
     t4.done = false;
     todoList.push_back(t4);
 
-    TodoItem t5;
-    memset(&t5, 0, sizeof(TodoItem));
-    strncpy(t5.text, "New: \\ ,Done: Spc", 19);
-    t5.priority = 3;
-    t5.urgency = 0;
-    t5.done = false;
-    todoList.push_back(t5);
+    addTask("New: \\ , Done: Spc");
 
-    TodoItem t6;
-    memset(&t6, 0, sizeof(TodoItem));
-    strncpy(t6.text, "Move: Enter", 19);
-    t6.priority = 4;
-    t6.urgency = 0;
-    t6.done = false;
-    todoList.push_back(t6);
+    addTask("Move: Enter");
+
+    addTask("Press L for help");
 
     saveToSD();
   }
@@ -321,7 +339,14 @@ void TodoApp::addTask(const char* text) {
   newItem.urgency = 0;
   newItem.done = false;
 
-  todoList.push_back(newItem);
+  if (todoList.empty()) {
+    todoList.push_back(newItem);
+    selectedIndex = 0;
+  } else {
+    todoList.insert(todoList.begin() + selectedIndex + 1, newItem);
+    selectedIndex++;
+  }
+
   saveToSD();
 }
 
@@ -330,6 +355,25 @@ void TodoApp::deleteTask() {
     todoList.erase(todoList.begin() + selectedIndex);
     if (selectedIndex >= (int)todoList.size() && selectedIndex > 0)
       selectedIndex--;
+    saveToSD();
+  }
+}
+
+void TodoApp::removeDoneTasks() {
+  auto it = todoList.begin();
+  bool changed = false;
+  while (it != todoList.end()) {
+    if (it->done) {
+      it = todoList.erase(it);
+      changed = true;
+    } else {
+      ++it;
+    }
+  }
+  if (changed) {
+    if (selectedIndex >= (int)todoList.size()) {
+      selectedIndex = (int)todoList.size() > 0 ? (int)todoList.size() - 1 : 0;
+    }
     saveToSD();
   }
 }
@@ -348,4 +392,20 @@ void TodoApp::moveTask(int direction) {
     std::swap(todoList[selectedIndex], todoList[n]);
     saveToSD();
   }
+}
+
+void TodoApp::sortByPriority() {
+  std::sort(todoList.begin(), todoList.end(),
+            [](const TodoItem& a, const TodoItem& b) {
+              return a.priority < b.priority;
+            });
+  saveToSD();
+}
+
+void TodoApp::sortByUrgency() {
+  std::sort(todoList.begin(), todoList.end(),
+            [](const TodoItem& a, const TodoItem& b) {
+              return a.urgency > b.urgency;
+            });
+  saveToSD();
 }
