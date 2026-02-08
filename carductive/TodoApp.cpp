@@ -2,6 +2,7 @@
 
 #include <M5GFX.h>
 #include <SD.h>
+
 #include <algorithm>
 
 #include "Global.h"
@@ -86,9 +87,9 @@ void TodoApp::update() {
     showLegend = true;
   } else if (M5Cardputer.Keyboard.isKeyPressed('c')) {
     removeDoneTasks();
-  } else if (M5Cardputer.Keyboard.isKeyPressed('p')) {  // Dodaj to
+  } else if (M5Cardputer.Keyboard.isKeyPressed('p')) {
     sortByPriority();
-  } else if (M5Cardputer.Keyboard.isKeyPressed('u')) {  // Dodaj to
+  } else if (M5Cardputer.Keyboard.isKeyPressed('u')) {
     sortByUrgency();
   } else if (M5Cardputer.Keyboard.isKeyPressed('q'))
     adjustVal(todoList[selectedIndex].priority, -1, 1, 4);
@@ -198,7 +199,15 @@ void TodoApp::draw() {
 
     if (item.urgency > 0) {
       for (int d = 0; d < item.urgency; d++) {
-        canvas.fillCircle(225 - (d * 8), y + 8, 2, isSel ? WHITE : COL_ACCENT);
+        uint16_t dotCol;
+
+        if (item.done) {
+          dotCol = COL_TEXT_DONE;
+        } else {
+          dotCol = COL_ACCENT;
+        }
+
+        canvas.fillCircle(225 - (d * 8), y + 8, 2, dotCol);
       }
     }
   }
@@ -381,7 +390,13 @@ void TodoApp::removeDoneTasks() {
 void TodoApp::toggleDone() {
   if (selectedIndex >= 0 && selectedIndex < (int)todoList.size()) {
     if (strcmp(todoList[selectedIndex].text, SEP_TAG) == 0) return;
+
     todoList[selectedIndex].done = !todoList[selectedIndex].done;
+
+    if (selectedIndex < (int)todoList.size() - 1) {
+      selectedIndex++;
+    }
+
     saveToSD();
   }
 }

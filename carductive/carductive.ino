@@ -114,7 +114,7 @@ void loop() {
   if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
     bool typingBlocked = (currentMode == APP_TODO && todoApp.isTypingMode());
 
-    //Switch apps only if not typing
+    // Switch apps only if not typing
     if (!typingBlocked && M5Cardputer.Keyboard.isKeyPressed(',')) {
       currentMode = (AppMode)((currentMode - 1 + APP_COUNT) % APP_COUNT);
     } else if (!typingBlocked && M5Cardputer.Keyboard.isKeyPressed('/')) {
@@ -127,7 +127,7 @@ void loop() {
   canvas.fillScreen(COL_BG);
   handleDraw();
 
-  //Battery
+  // Battery
   canvas.fillRect(200, 0, 40, 20, COL_HEADER_BG);
   int bat = M5.Power.getBatteryLevel();
   uint16_t batCol;
