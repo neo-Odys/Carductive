@@ -19,7 +19,10 @@ enum AppMode {
     APP_COUNT
 };
 
-// RGB565 Color Palette
+#define BRIGHT_HIGH  80
+#define BRIGHT_DIM   6
+#define DIM_DELAY_MS 15000
+
 #define COL_BG          0x10A2
 #define COL_HEADER_BG   0x0841
 

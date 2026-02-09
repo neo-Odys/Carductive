@@ -14,8 +14,10 @@ TodoApp todoApp;
 PomodoroApp pomodoroApp;
 HabitApp habitApp;
 DayTrackApp dayTrackApp;
-
 AppMode currentMode = APP_TODO;
+
+unsigned long lastActivityTime = 0;
+bool isScreenDimmed = false;
 
 void handleUpdate() {
   switch (currentMode) {
@@ -51,7 +53,6 @@ void handleDraw() {
   }
 }
 
-// I have different ideas now, todo
 void playIntro() {
   canvas.setTextDatum(middle_center);
   canvas.setTextSize(2);
@@ -84,10 +85,11 @@ void setup() {
   auto cfg = M5.config();
   M5Cardputer.begin(cfg, true);
   M5Cardputer.Display.setRotation(1);
+  M5Cardputer.Display.setBrightness(BRIGHT_HIGH);
+
   canvas.createSprite(240, 135);
 
   playIntro();
-
   bool sdWorks = SD.begin(GPIO_NUM_12, SPI, 25000000);
 
   if (!sdWorks) {
@@ -103,24 +105,55 @@ void setup() {
     }
   }
 
-  //wipeData();
   canvas.setTextDatum(top_left);
   todoApp.init();
+
+  lastActivityTime = millis();
 }
 
 void loop() {
   M5Cardputer.update();
 
-  if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
-    bool typingBlocked = (currentMode == APP_TODO && todoApp.isTypingMode());
+  bool isAction =
+      M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed();
 
-    // Switch apps only if not typing
-    if (!typingBlocked && M5Cardputer.Keyboard.isKeyPressed(',')) {
+  if (isAction) {
+    lastActivityTime = millis();
+    if (isScreenDimmed) {
+      M5Cardputer.Display.setBrightness(BRIGHT_HIGH);
+      isScreenDimmed = false;
+    }
+  } else {
+    if (!isScreenDimmed && (millis() - lastActivityTime > DIM_DELAY_MS)) {
+      M5Cardputer.Display.setBrightness(BRIGHT_DIM);
+      isScreenDimmed = true;
+    }
+  }
+
+  bool isPomodoro = (currentMode == APP_POMODORO);
+  bool blocked = false;
+  if (currentMode == APP_TODO && todoApp.isTypingMode()) blocked = true;
+  if (isPomodoro && pomodoroApp.isActive()) blocked = true;
+
+  bool appSwitched = false;
+
+  if (isAction && !blocked) {
+    if (M5Cardputer.Keyboard.isKeyPressed(',')) {
       currentMode = (AppMode)((currentMode - 1 + APP_COUNT) % APP_COUNT);
-    } else if (!typingBlocked && M5Cardputer.Keyboard.isKeyPressed('/')) {
+      appSwitched = true;
+    } else if (M5Cardputer.Keyboard.isKeyPressed('/')) {
       currentMode = (AppMode)((currentMode + 1) % APP_COUNT);
-    } else {
+      appSwitched = true;
+    }
+  }
+
+  if (!appSwitched) {
+    if (isPomodoro) {
       handleUpdate();
+    } else {
+      if (isAction) {
+        handleUpdate();
+      }
     }
   }
 
@@ -130,13 +163,7 @@ void loop() {
   // Battery
   canvas.fillRect(200, 0, 40, 20, COL_HEADER_BG);
   int bat = M5.Power.getBatteryLevel();
-  uint16_t batCol;
-
-  if (bat > 20) {
-    batCol = COL_HIGHLIGHT;
-  } else {
-    batCol = COL_P1;
-  }
+  uint16_t batCol = (bat > 20) ? COL_HIGHLIGHT : COL_P1;
 
   canvas.drawRect(205, 6, 30, 8, COL_TEXT_NORM);
   canvas.fillRect(207, 8, (bat * 26) / 100, 4, batCol);
