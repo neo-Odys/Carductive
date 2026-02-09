@@ -58,7 +58,6 @@ void playIntro() {
   canvas.setTextSize(2);
   const char* title = "CARDUCTIVE";
   int len = strlen(title);
-
   for (int i = 1; i <= len; i++) {
     canvas.fillScreen(COL_BG);
     char part[32];
@@ -86,7 +85,7 @@ void setup() {
   M5Cardputer.begin(cfg, true);
   M5Cardputer.Display.setRotation(1);
   M5Cardputer.Display.setBrightness(BRIGHT_HIGH);
-
+  
   canvas.createSprite(240, 135);
 
   playIntro();
@@ -106,17 +105,20 @@ void setup() {
   }
 
   canvas.setTextDatum(top_left);
+  
   todoApp.init();
-
+  pomodoroApp.init(); 
+  
   lastActivityTime = millis();
 }
 
 void loop() {
   M5Cardputer.update();
 
-  bool isAction =
-      M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed();
+  bool isAction = M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed();
+  bool isPomodoro = (currentMode == APP_POMODORO);
 
+  // Screen dimming logic
   if (isAction) {
     lastActivityTime = millis();
     if (isScreenDimmed) {
@@ -124,13 +126,21 @@ void loop() {
       isScreenDimmed = false;
     }
   } else {
-    if (!isScreenDimmed && (millis() - lastActivityTime > DIM_DELAY_MS)) {
-      M5Cardputer.Display.setBrightness(BRIGHT_DIM);
-      isScreenDimmed = true;
+    // Dim only if in Pomodoro mode and timer is active
+    if (isPomodoro && pomodoroApp.isActive()) {
+      if (!isScreenDimmed && (millis() - lastActivityTime > DIM_DELAY_MS)) {
+        M5Cardputer.Display.setBrightness(BRIGHT_DIM);
+        isScreenDimmed = true;
+      }
+    } else {
+      if (isScreenDimmed) {
+        M5Cardputer.Display.setBrightness(BRIGHT_HIGH);
+        isScreenDimmed = false;
+      }
+      lastActivityTime = millis(); 
     }
   }
 
-  bool isPomodoro = (currentMode == APP_POMODORO);
   bool blocked = false;
   if (currentMode == APP_TODO && todoApp.isTypingMode()) blocked = true;
   if (isPomodoro && pomodoroApp.isActive()) blocked = true;
@@ -149,10 +159,10 @@ void loop() {
 
   if (!appSwitched) {
     if (isPomodoro) {
-      handleUpdate();
+      handleUpdate(); // Always update Pomodoro for timer accuracy
     } else {
       if (isAction) {
-        handleUpdate();
+        handleUpdate(); // Update others only on input
       }
     }
   }
@@ -160,7 +170,7 @@ void loop() {
   canvas.fillScreen(COL_BG);
   handleDraw();
 
-  // Battery
+  // Battery bar
   canvas.fillRect(200, 0, 40, 20, COL_HEADER_BG);
   int bat = M5.Power.getBatteryLevel();
   uint16_t batCol = (bat > 20) ? COL_HIGHLIGHT : COL_P1;

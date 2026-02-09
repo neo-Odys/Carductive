@@ -3,19 +3,34 @@
 
 #include <Arduino.h>
 
+struct PomoConfig {
+    int workTime;
+    int breakTime;
+    int volume;
+    bool autoStart;
+};
+
 class PomodoroApp {
 public:
     PomodoroApp();
+    void init();
     void update();
     void draw();
     bool isActive();
 
 private:
     bool isRunning;
+    bool isBreak;
     int timeLeft;
     unsigned long lastTick;
     
-    const int WORK_TIME = 25 * 60;
+    int volume;
+    int workDuration;
+    int breakDuration;
+    bool autoStart;
+
+    void loadSettings();
+    void saveSettings();
 };
 
 #endif
