@@ -14,6 +14,7 @@ PomodoroApp::PomodoroApp() {
     volume = 100;
     autoStart = false;
     timeLeft = workDuration;
+    showLegend = false;
 }
 
 void PomodoroApp::init() {
@@ -57,6 +58,22 @@ void PomodoroApp::saveSettings() {
 }
 
 void PomodoroApp::update() {
+    static bool prevL = false;
+    bool kL = M5Cardputer.Keyboard.isKeyPressed('l');
+
+    if (kL && !prevL) {
+        showLegend = !showLegend;
+    }
+    prevL = kL;
+
+    if (showLegend) {
+        if (M5Cardputer.Keyboard.isKeyPressed(KEY_ESC) || 
+            M5Cardputer.Keyboard.isKeyPressed('`')) {
+            showLegend = false;
+        }
+        return; 
+    }
+
     static bool prevEnter = false;
     static bool prevBksp = false;
     static bool prevUp = false;
@@ -176,6 +193,11 @@ void PomodoroApp::update() {
 }
 
 void PomodoroApp::draw() {
+    if (showLegend) {
+        drawLegendScreen();
+        return;
+    }
+
     canvas.fillRect(0, 0, 240, 20, COL_HEADER_BG);
     
     canvas.setTextSize(1.5);
@@ -207,27 +229,20 @@ void PomodoroApp::draw() {
     
     canvas.drawCenterString(timeStr, 110, 45);
 
-    canvas.setTextSize(1.2);
-    canvas.setTextColor(COL_P4);
-    
-    int instrY = 100;
-    
-    if (isRunning) {
-        canvas.drawCenterString("[Enter] Pause", 110, instrY);
+    canvas.setTextSize(2);
+    canvas.setTextColor(WHITE);
+    if (isBreak) {
+        canvas.drawCenterString("chill", 110, 95);
     } else {
-        canvas.drawCenterString("[Enter] Start  [Tab] Mode", 110, instrY);
+        canvas.drawCenterString("stay focused", 110, 95);
     }
 
-    canvas.setTextColor(COL_TEXT_NORM);
-    canvas.setTextSize(1.0);
-    canvas.drawCenterString("-5m [   ] +5m   (Bksp: Rst)", 110, instrY + 15);
-
+    canvas.setTextSize(1.2);
     canvas.setCursor(5, 122);
+    canvas.setTextColor(WHITE);
     if (autoStart) {
-        canvas.setTextColor(TFT_GREEN);
         canvas.print("AUTO: ON [A]");
     } else {
-        canvas.setTextColor(COL_P1);
         canvas.print("AUTO: OFF [A]");
     }
 
@@ -248,4 +263,61 @@ void PomodoroApp::draw() {
     canvas.setTextDatum(top_center);
     canvas.drawString("VOL", barX + (barW / 2), barY - 9);
     canvas.setTextDatum(top_left);
+}
+
+void PomodoroApp::drawLegendScreen() {
+    canvas.fillScreen(COL_BG);
+
+    canvas.fillRect(0, 0, 240, 20, COL_HEADER_BG);
+    canvas.setTextDatum(top_left);
+
+    canvas.setTextSize(1.5);
+    canvas.setCursor(5, 5);
+    canvas.setTextColor(COL_ACCENT);
+    canvas.print("POMODORO [LEGEND]");
+
+    canvas.setTextSize(1.0);
+    int y = 30;
+    int x1 = 10;
+    int x2 = 160;
+    int lh = 14; 
+
+    canvas.setTextColor(COL_P4);
+    canvas.drawString("START / PAUSE", x1, y);
+    canvas.setTextColor(WHITE);
+    canvas.drawString("Enter", x2, y);
+    y += lh;
+
+    canvas.setTextColor(COL_P4);
+    canvas.drawString("RESET TIMER", x1, y);
+    canvas.setTextColor(WHITE);
+    canvas.drawString("Backspace", x2, y);
+    y += lh;
+
+    canvas.setTextColor(COL_P4);
+    canvas.drawString("SWITCH MODE", x1, y);
+    canvas.setTextColor(WHITE);
+    canvas.drawString("Tab", x2, y);
+    y += lh;
+
+    canvas.setTextColor(COL_P4);
+    canvas.drawString("TIME - / + 5min", x1, y);
+    canvas.setTextColor(WHITE);
+    canvas.drawString("[ / ]", x2, y);
+    y += lh;
+
+    canvas.setTextColor(COL_P4);
+    canvas.drawString("VOLUME - / +", x1, y);
+    canvas.setTextColor(WHITE);
+    canvas.drawString(". / ;", x2, y);
+    y += lh;
+
+    canvas.setTextColor(COL_P4);
+    canvas.drawString("AUTO START", x1, y);
+    canvas.setTextColor(WHITE);
+    canvas.drawString("a", x2, y);
+    y += lh;
+
+    canvas.setTextColor(COL_ACCENT);
+    canvas.drawCenterString("[ Press L to return ]", 120, 120);
 }

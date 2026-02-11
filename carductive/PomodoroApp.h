@@ -28,9 +28,11 @@ private:
     int workDuration;
     int breakDuration;
     bool autoStart;
+    bool showLegend = false;
 
     void loadSettings();
     void saveSettings();
+    void drawLegendScreen();
 };
 
 #endif
