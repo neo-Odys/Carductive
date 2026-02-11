@@ -6,7 +6,12 @@
 #include <algorithm>
 
 #include "Global.h"
-
+const char* PRIO_LABELS[4] = {
+    "# ",
+    "$ ",
+    "* ",
+    "| "
+};
 extern M5Canvas canvas;
 
 void TodoApp::init() { loadFromSD(); }
@@ -130,10 +135,19 @@ void TodoApp::draw() {
   int visibleItems = 6;
   int startY = 22;
 
-  // Scroll offset to see selected items
+  static int scrollOffset = 0;
 
-  int viewOffset =
-      (selectedIndex >= visibleItems) ? selectedIndex - (visibleItems - 1) : 0;
+  if (selectedIndex < scrollOffset) {
+    scrollOffset = selectedIndex;
+  }
+  if (selectedIndex >= scrollOffset + visibleItems) {
+    scrollOffset = selectedIndex - visibleItems + 1;
+  }
+  
+  if (scrollOffset > listSize - visibleItems) scrollOffset = listSize - visibleItems;
+  if (scrollOffset < 0) scrollOffset = 0;
+  
+  int viewOffset = scrollOffset;
 
   for (int i = 0; i < visibleItems; i++) {
     int idx = viewOffset + i;
@@ -162,15 +176,14 @@ void TodoApp::draw() {
                                   : (item.priority == 3 ? COL_P3 : COL_P4)));
     uint16_t textCol = item.done ? COL_TEXT_DONE : COL_TEXT_NORM;
 
-    char prefixBuf[8];
-    snprintf(prefixBuf, sizeof(prefixBuf), "%d | ", item.priority);
+    const char* prefixBuf = PRIO_LABELS[item.priority - 1];
 
     int prefixW = canvas.textWidth(prefixBuf);
     int maxLen = 30 - strlen(prefixBuf);
 
     char content[64];
     int textLen = strlen(item.text);
-    // Stop typing after maxLen
+    
     if (textLen > maxLen) {
       strncpy(content, item.text, maxLen - 2);
       content[maxLen - 2] = '\0';
