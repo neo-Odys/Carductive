@@ -89,7 +89,7 @@ void PomodoroApp::update() {
     bool kDown  = M5Cardputer.Keyboard.isKeyPressed('.');
     bool kLeftBr = M5Cardputer.Keyboard.isKeyPressed('[');
     bool kRightBr = M5Cardputer.Keyboard.isKeyPressed(']');
-    bool kTab   = M5Cardputer.Keyboard.isKeyPressed(KEY_TAB);
+    bool kTab   = M5Cardputer.Keyboard.isKeyPressed(KEY_TAB) || M5Cardputer.Keyboard.isKeyPressed(' ');
     bool kA     = M5Cardputer.Keyboard.isKeyPressed('a');
 
     if (kEnter && !prevEnter) {
@@ -231,7 +231,9 @@ void PomodoroApp::draw() {
 
     canvas.setTextSize(2);
     canvas.setTextColor(WHITE);
-    if (isBreak) {
+    if (!isRunning) {
+        canvas.drawCenterString("paused", 110, 95);
+    } else if (isBreak) {
         canvas.drawCenterString("chill", 110, 95);
     } else {
         canvas.drawCenterString("stay focused", 110, 95);
@@ -297,7 +299,7 @@ void PomodoroApp::drawLegendScreen() {
     canvas.setTextColor(COL_P4);
     canvas.drawString("SWITCH MODE", x1, y);
     canvas.setTextColor(WHITE);
-    canvas.drawString("Tab", x2, y);
+    canvas.drawString("Tab / Space", x2, y);
     y += lh;
 
     canvas.setTextColor(COL_P4);
