@@ -36,8 +36,6 @@ class TodoApp {
   void deleteTask();
   void toggleDone();
   void removeDoneTasks();
-  void sortByPriority();
-  void sortByUrgency();
   
   void drawLegendScreen();
   void adjustVal(int& field, int delta, int minV, int maxV);

@@ -1,11 +1,10 @@
 #include "TodoApp.h"
-
+#include "PomodoroApp.h"
 #include <M5GFX.h>
 #include <SD.h>
-
 #include <algorithm>
-
 #include "Global.h"
+
 const char* PRIO_LABELS[4] = {
     "# ",
     "$ ",
@@ -13,6 +12,8 @@ const char* PRIO_LABELS[4] = {
     "| "
 };
 extern M5Canvas canvas;
+extern PomodoroApp pomodoroApp;
+extern AppMode currentMode;
 
 void TodoApp::init() { loadFromSD(); }
 
@@ -30,7 +31,6 @@ void TodoApp::adjustVal(int& field, int delta, int minV, int maxV) {
 }
 
 void TodoApp::update() {
-  // Legend logic
   if (showLegend) {
     if (M5Cardputer.Keyboard.isKeyPressed('l') ||
         M5Cardputer.Keyboard.isKeyPressed('`')) {
@@ -51,7 +51,6 @@ void TodoApp::update() {
       isTyping = false;
       memset(inputBuffer, 0, sizeof(inputBuffer));
     } else {
-      // Type on keyboard
       for (auto c : M5Cardputer.Keyboard.keysState().word) {
         int len = strlen(inputBuffer);
         if (len < 18 && len < (int)sizeof(inputBuffer) - 1) {
@@ -93,9 +92,10 @@ void TodoApp::update() {
   } else if (M5Cardputer.Keyboard.isKeyPressed('c')) {
     removeDoneTasks();
   } else if (M5Cardputer.Keyboard.isKeyPressed('p')) {
-    sortByPriority();
-  } else if (M5Cardputer.Keyboard.isKeyPressed('u')) {
-    sortByUrgency();
+    if (selectedIndex >= 0 && selectedIndex < (int)todoList.size()) {
+        pomodoroApp.setTask(todoList[selectedIndex].text);
+        currentMode = APP_POMODORO;
+    }
   } else if (M5Cardputer.Keyboard.isKeyPressed('q'))
     adjustVal(todoList[selectedIndex].priority, -1, 1, 4);
   else if (M5Cardputer.Keyboard.isKeyPressed('w'))
@@ -104,7 +104,6 @@ void TodoApp::update() {
     adjustVal(todoList[selectedIndex].urgency, -1, 0, 3);
   else if (M5Cardputer.Keyboard.isKeyPressed(']'))
     adjustVal(todoList[selectedIndex].urgency, 1, 0, 3);
-
   else if (M5Cardputer.Keyboard.isKeyPressed(';')) {
     if (selectedIndex > 0) selectedIndex--;
   } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
@@ -269,6 +268,12 @@ void TodoApp::drawLegendScreen() {
   y += lh;
 
   canvas.setTextColor(COL_P4);
+  canvas.drawString("POMODORO", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("p", x2, y);
+  y += lh;
+
+  canvas.setTextColor(COL_P4);
   canvas.drawString("PRIORITY", x1, y);
   canvas.setTextColor(WHITE);
   canvas.drawString("q / w", x2, y);
@@ -320,7 +325,6 @@ void TodoApp::loadFromSD() {
       f.close();
     }
   }
-  // Tutorial todo list
 
   if (todoList.empty()) {
     addTask("Type --- for line");
@@ -420,20 +424,4 @@ void TodoApp::moveTask(int direction) {
     std::swap(todoList[selectedIndex], todoList[n]);
     saveToSD();
   }
-}
-
-void TodoApp::sortByPriority() {
-  std::sort(todoList.begin(), todoList.end(),
-            [](const TodoItem& a, const TodoItem& b) {
-              return a.priority < b.priority;
-            });
-  saveToSD();
-}
-
-void TodoApp::sortByUrgency() {
-  std::sort(todoList.begin(), todoList.end(),
-            [](const TodoItem& a, const TodoItem& b) {
-              return a.urgency > b.urgency;
-            });
-  saveToSD();
 }

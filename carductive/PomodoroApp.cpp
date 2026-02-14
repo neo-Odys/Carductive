@@ -15,12 +15,22 @@ PomodoroApp::PomodoroApp() {
     autoStart = false;
     timeLeft = workDuration;
     showLegend = false;
+    memset(currentTask, 0, sizeof(currentTask));
 }
 
 void PomodoroApp::init() {
     loadSettings();
     timeLeft = workDuration;
     M5.Speaker.setVolume(volume);
+}
+
+void PomodoroApp::setTask(const char* task) {
+    if (task) {
+        strncpy(currentTask, task, sizeof(currentTask) - 1);
+        currentTask[sizeof(currentTask) - 1] = '\0';
+    } else {
+        memset(currentTask, 0, sizeof(currentTask));
+    }
 }
 
 bool PomodoroApp::isActive() {
@@ -218,6 +228,7 @@ void PomodoroApp::draw() {
     char timeStr[10];
     sprintf(timeStr, "%02d:%02d", minutes, seconds);
 
+    // Timer moved up to 35
     canvas.setTextSize(5);
     if (isBreak) {
         if (isRunning) canvas.setTextColor(COL_P3);
@@ -227,19 +238,29 @@ void PomodoroApp::draw() {
         else canvas.setTextColor(COL_TEXT_NORM);
     }
     
-    canvas.drawCenterString(timeStr, 110, 45);
+    canvas.drawCenterString(timeStr, 110, 35);
 
-    canvas.setTextSize(2);
-    canvas.setTextColor(WHITE);
-    if (!isRunning) {
-        canvas.drawCenterString("paused", 110, 95);
-    } else if (isBreak) {
-        canvas.drawCenterString("chill", 110, 95);
-    } else {
-        canvas.drawCenterString("stay focused", 110, 95);
+    // Current Task - bigger and below timer
+    if (currentTask[0] != '\0') {
+        canvas.setTextSize(2);
+        canvas.setTextColor(COL_ACCENT);
+        canvas.drawCenterString(currentTask, 110, 80);
     }
 
-    canvas.setTextSize(1.2);
+    // Status text - smaller and below task
+    canvas.setTextSize(1.5);
+    canvas.setTextColor(WHITE);
+    int statusY = 105;
+    
+    if (!isRunning) {
+        canvas.drawCenterString("paused", 110, statusY);
+    } else if (isBreak) {
+        canvas.drawCenterString("chill", 110, statusY);
+    } else {
+        canvas.drawCenterString("stay focused", 110, statusY);
+    }
+
+    canvas.setTextSize(1);
     canvas.setCursor(5, 122);
     canvas.setTextColor(WHITE);
     if (autoStart) {

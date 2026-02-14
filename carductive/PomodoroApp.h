@@ -17,6 +17,7 @@ public:
     void update();
     void draw();
     bool isActive();
+    void setTask(const char* task);
 
 private:
     bool isRunning;
@@ -29,6 +30,7 @@ private:
     int breakDuration;
     bool autoStart;
     bool showLegend = false;
+    char currentTask[64];
 
     void loadSettings();
     void saveSettings();
