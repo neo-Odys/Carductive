@@ -82,8 +82,7 @@ void TodoApp::update() {
     memset(inputBuffer, 0, sizeof(inputBuffer));
   } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
     if (!todoList.empty()) isReordering = true;
-  } else if (M5Cardputer.Keyboard.isKeyPressed(' ') ||
-             M5Cardputer.Keyboard.isKeyPressed(KEY_TAB)) {
+  } else if (M5Cardputer.Keyboard.isKeyPressed(' ')) {
     toggleDone();
   } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
     deleteTask();
@@ -128,7 +127,7 @@ void TodoApp::draw() {
     canvas.print("TODO [REORDER]");
   } else {
     canvas.setTextColor(COL_TEXT_NORM);
-    canvas.printf("TODO [%d]", listSize > 0 ? listSize - 1 : 0);
+    canvas.printf("TODO [%d]", listSize);
   }
 
   int visibleItems = 6;

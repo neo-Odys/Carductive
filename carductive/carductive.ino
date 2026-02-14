@@ -151,7 +151,7 @@ void loop() {
     if (M5Cardputer.Keyboard.isKeyPressed(',')) {
       currentMode = (AppMode)((currentMode - 1 + APP_COUNT) % APP_COUNT);
       appSwitched = true;
-    } else if (M5Cardputer.Keyboard.isKeyPressed('/')) {
+    } else if (M5Cardputer.Keyboard.isKeyPressed('/') || (currentMode == APP_TODO && M5Cardputer.Keyboard.isKeyPressed(KEY_TAB))) {
       currentMode = (AppMode)((currentMode + 1) % APP_COUNT);
       appSwitched = true;
     }

@@ -99,7 +99,7 @@ void PomodoroApp::update() {
     bool kDown  = M5Cardputer.Keyboard.isKeyPressed('.');
     bool kLeftBr = M5Cardputer.Keyboard.isKeyPressed('[');
     bool kRightBr = M5Cardputer.Keyboard.isKeyPressed(']');
-    bool kTab   = M5Cardputer.Keyboard.isKeyPressed(KEY_TAB) || M5Cardputer.Keyboard.isKeyPressed(' ');
+    bool kTab   = M5Cardputer.Keyboard.isKeyPressed(KEY_TAB);
     bool kA     = M5Cardputer.Keyboard.isKeyPressed('a');
 
     if (kEnter && !prevEnter) {
@@ -240,14 +240,12 @@ void PomodoroApp::draw() {
     
     canvas.drawCenterString(timeStr, 110, 35);
 
-    // Current Task - bigger and below timer
     if (currentTask[0] != '\0') {
         canvas.setTextSize(2);
         canvas.setTextColor(COL_ACCENT);
         canvas.drawCenterString(currentTask, 110, 80);
     }
 
-    // Status text - smaller and below task
     canvas.setTextSize(1.5);
     canvas.setTextColor(WHITE);
     int statusY = 105;
