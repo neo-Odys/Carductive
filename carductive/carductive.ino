@@ -108,7 +108,7 @@ void setup() {
   
   todoApp.init();
   pomodoroApp.init(); 
-  
+  habitApp.init();
   lastActivityTime = millis();
 }
 
@@ -143,6 +143,7 @@ void loop() {
 
   bool blocked = false;
   if (currentMode == APP_TODO && todoApp.isTypingMode()) blocked = true;
+  if (currentMode == APP_HABIT && habitApp.isTypingMode()) blocked = true;
   if (isPomodoro && pomodoroApp.isActive()) blocked = true;
 
   bool appSwitched = false;
