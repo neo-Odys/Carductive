@@ -5,14 +5,36 @@
 
 extern M5Canvas canvas;
 
+void HabitApp::getFilePath(char* buffer) {
+    sprintf(buffer, DATA_PATH "/h_%04d%02d%02d.csv", viewYear, viewMonth, viewDay);
+}
+
 void HabitApp::init() {
-    loadData();
-    if (columns[CAT_MORNING].empty() && columns[CAT_AFTERNOON].empty()) {
+    bool isFirstRun = !SD.exists(DATA_PATH "/habit_lastdate.bin");
+    
+    if (!isFirstRun) {
+        File sf = SD.open(DATA_PATH "/habit_lastdate.bin", FILE_READ);
+        if (sf) {
+            sf.read((uint8_t*)&viewYear, sizeof(int));
+            sf.read((uint8_t*)&viewMonth, sizeof(int));
+            sf.read((uint8_t*)&viewDay, sizeof(int));
+            sf.close();
+        }
+    }
+    
+    // Ładowanie listy globalnej (Master List)
+    if (!SD.exists(DATA_PATH "/habits_master.csv")) {
         columns[CAT_MORNING].push_back({"Drink Water", false});
         columns[CAT_AFTERNOON].push_back({"Read Book", false});
         columns[CAT_EVENING].push_back({"Sleep 8h", false});
-        saveData();
+        saveMaster();
+    } else {
+        loadMaster();
     }
+    
+    // Nałożenie zaznaczeń z dzisiejszego dnia na listę globalną
+    loadDay();
+    saveDay(); 
 }
 
 bool HabitApp::isTypingMode() { 
@@ -28,7 +50,9 @@ void HabitApp::addHabit(const char* text) {
     
     columns[currentColumn].push_back(newItem);
     selectedIndex = columns[currentColumn].size() - 1;
-    saveData();
+    
+    saveMaster(); // Zapisz na globalną listę
+    saveDay();    // Zapisz aktualny dzień
 }
 
 void HabitApp::deleteHabit() {
@@ -37,7 +61,9 @@ void HabitApp::deleteHabit() {
         columns[currentColumn].erase(columns[currentColumn].begin() + selectedIndex);
         if (selectedIndex >= (int)columns[currentColumn].size() && selectedIndex > 0) 
             selectedIndex--;
-        saveData();
+            
+        saveMaster(); // Usuwa z globalnej listy (znika wszędzie)
+        saveDay();
     }
 }
 
@@ -46,15 +72,37 @@ void HabitApp::moveHabit(int direction) {
     if (newPos >= 0 && newPos < (int)columns[currentColumn].size()) {
         std::swap(columns[currentColumn][selectedIndex], columns[currentColumn][newPos]);
         selectedIndex = newPos;
-        saveData();
+        saveMaster(); // Przesunięcie jest globalne
+        saveDay();
     }
+}
+
+void HabitApp::changeDate(int delta) {
+    saveDay(); // Najpierw zapisz obecny dzień
+    
+    viewDay += delta;
+    int daysInMonth[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+    if (viewYear % 4 == 0 && (viewYear % 100 != 0 || viewYear % 400 == 0)) daysInMonth[2] = 29;
+    
+    if (viewDay > daysInMonth[viewMonth]) {
+        viewDay = 1;
+        viewMonth++;
+        if (viewMonth > 12) { viewMonth = 1; viewYear++; }
+    } else if (viewDay < 1) {
+        viewMonth--;
+        if (viewMonth < 1) { viewMonth = 12; viewYear--; }
+        viewDay = daysInMonth[viewMonth];
+    }
+    
+    loadDay(); // Wczytaj odznaczenia (checkboxy) dla nowego dnia
+    selectedIndex = 0;
 }
 
 void HabitApp::toggleHabit() {
     if (columns[currentColumn].empty()) return;
     if (selectedIndex >= 0 && selectedIndex < (int)columns[currentColumn].size()) {
         columns[currentColumn][selectedIndex].done = !columns[currentColumn][selectedIndex].done;
-        saveData();
+        saveDay(); // Zaznaczenia zapisujemy TYLKO do tego konkretnego dnia
     }
 }
 
@@ -73,8 +121,10 @@ void HabitApp::update() {
             for (auto c : M5Cardputer.Keyboard.keysState().word) {
                 int len = strlen(inputBuffer);
                 if (len < 30) {
-                    inputBuffer[len] = c;
-                    inputBuffer[len + 1] = '\0';
+                    if (c != ';') {
+                        inputBuffer[len] = c;
+                        inputBuffer[len + 1] = '\0';
+                    }
                 }
             }
         }
@@ -92,9 +142,13 @@ void HabitApp::update() {
     } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
         if (selectedIndex < (int)columns[currentColumn].size() - 1) selectedIndex++;
     } else if (M5Cardputer.Keyboard.isKeyPressed('[')) {
-        moveHabit(-1);
+        changeDate(-1); 
     } else if (M5Cardputer.Keyboard.isKeyPressed(']')) {
-        moveHabit(1);
+        changeDate(1);  
+    } else if (M5Cardputer.Keyboard.isKeyPressed('-')) {
+        moveHabit(-1);  
+    } else if (M5Cardputer.Keyboard.isKeyPressed('=')) {
+        moveHabit(1);   
     } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) || M5Cardputer.Keyboard.isKeyPressed(' ')) {
         toggleHabit();
     } else if (M5Cardputer.Keyboard.isKeyPressed('\\')) {
@@ -108,14 +162,20 @@ void HabitApp::update() {
 void HabitApp::draw() {
     canvas.fillScreen(COL_BG);
 
-    // 1. GLOWNY NAGLOWEK
     canvas.fillRect(0, 0, 240, 20, COL_HEADER_BG);
-    canvas.setTextColor(COL_ACCENT);
+    
+    canvas.setTextColor(WHITE);
     canvas.setTextSize(1.5);
     canvas.setCursor(5, 4);
-    canvas.print("HABIT TRACKER");
+    canvas.print("HABITS");
 
-    // 2. BELKA KOLUMN
+    char dateStr[20];
+    snprintf(dateStr, sizeof(dateStr), "[%02d.%02d.%02d]", viewDay, viewMonth, viewYear % 100);
+    canvas.setTextColor(COL_ACCENT);
+    
+    // DATA BARDZIEJ NA LEWO (z 235 na 205)
+    canvas.drawRightString(dateStr, 180, 4); 
+
     int tabY = 20;
     int tabH = 22;
     int colW = 240 / 3;
@@ -125,7 +185,6 @@ void HabitApp::draw() {
         uint16_t txt = (i == currentColumn) ? WHITE : COL_P4;
         
         canvas.fillRect(i * colW, tabY, colW, tabH, bg);
-        
         if (i > 0) canvas.drawFastVLine(i * colW, tabY, tabH, COL_BG);
         
         canvas.setTextColor(txt);
@@ -135,18 +194,13 @@ void HabitApp::draw() {
         char buf[20];
         snprintf(buf, 20, "%s (%d)", (i==0?"MORN":(i==1?"AFT":"EVE")), (int)columns[i].size());
         
-        // ZMIANA: Usunięto "+2" z pozycji Y, aby napisy były ciupineczkę wyżej
         canvas.drawString(buf, (i * colW) + (colW / 2), tabY + (tabH/2));
     }
     canvas.setTextDatum(top_left);
 
-    // 3. LISTA
     int listStartY = 46; 
-    
-    // ZMIANA: Zmniejszono wysokość wiersza z 22 na 19, aby pasowała do TodoApp
     int itemH = 19; 
-    
-    int visibleItems = 5; // Przy mniejszym itemH zmieści się więcej (5 zamiast 4)
+    int visibleItems = 5; 
     
     int offset = 0;
     if (selectedIndex >= visibleItems) offset = selectedIndex - (visibleItems - 1);
@@ -169,11 +223,9 @@ void HabitApp::draw() {
             HabitItem& item = currentList[idx];
 
             if (isSel) {
-                // ZMIANA: Styl podświetlenia skopiowany 1:1 z TodoApp (2, y, 236, 17, 3)
                 canvas.fillRoundRect(2, y, 236, 17, 3, COL_HIGHLIGHT);
             }
 
-            // ZMIANA: Checkbox dopasowany do wysokości wiersza (11px), pozycja x=8 jak tekst w Todo
             int boxSize = 11;
             int boxY = y + 3;
             
@@ -185,7 +237,6 @@ void HabitApp::draw() {
                 canvas.setTextColor(COL_TEXT_NORM);
             }
 
-            // ZMIANA: Pozycja tekstu y+3 (jak w Todo), x=24 (odsunięcie od kwadratu)
             canvas.setTextSize(1.5);
             canvas.drawString(item.text, 24, y + 3);
         }
@@ -201,34 +252,135 @@ void HabitApp::draw() {
     }
 }
 
-void HabitApp::saveData() {
-    File f = SD.open(DATA_PATH "/habits_v2.bin", FILE_WRITE);
+void HabitApp::saveMaster() {
+    if (SD.exists(DATA_PATH "/habits_master.csv")) {
+        SD.remove(DATA_PATH "/habits_master.csv");
+    }
+    
+    File f = SD.open(DATA_PATH "/habits_master.csv", FILE_WRITE);
     if (!f) return;
 
+    f.println("ID_Kategorii;Nazwa_Nawyku");
     for (int i = 0; i < CAT_COUNT; i++) {
-        int count = columns[i].size();
-        f.write((uint8_t*)&count, sizeof(int));
         for (const auto& item : columns[i]) {
-            f.write((uint8_t*)&item, sizeof(HabitItem));
+            f.printf("%d;%s\n", i, item.text);
         }
     }
     f.close();
 }
 
-void HabitApp::loadData() {
-    if (!SD.exists(DATA_PATH "/habits_v2.bin")) return;
-    
-    File f = SD.open(DATA_PATH "/habits_v2.bin", FILE_READ);
-    if (!f) return;
-
+void HabitApp::loadMaster() {
     for (int i = 0; i < CAT_COUNT; i++) {
         columns[i].clear();
-        int count = 0;
-        f.read((uint8_t*)&count, sizeof(int));
-        for (int j = 0; j < count; j++) {
+    }
+    
+    if (!SD.exists(DATA_PATH "/habits_master.csv")) return;
+    
+    File f = SD.open(DATA_PATH "/habits_master.csv", FILE_READ);
+    if (!f) return;
+
+    bool isFirstLine = true;
+    while (f.available()) {
+        String line = f.readStringUntil('\n');
+        line.trim();
+        if (line.length() == 0) continue;
+
+        if (isFirstLine) {
+            isFirstLine = false; 
+            continue;
+        }
+
+        int firstSemi = line.indexOf(';');
+        if (firstSemi == -1) continue;
+
+        int cat = line.substring(0, firstSemi).toInt();
+        String textStr = line.substring(firstSemi + 1);
+
+        if (cat >= 0 && cat < CAT_COUNT) {
             HabitItem item;
-            f.read((uint8_t*)&item, sizeof(HabitItem));
-            columns[i].push_back(item);
+            strncpy(item.text, textStr.c_str(), 31);
+            item.text[31] = '\0';
+            item.done = false; // Ładujemy zmasterowaną listę zawsze jako niezrobioną
+            columns[cat].push_back(item);
+        }
+    }
+    f.close();
+}
+
+void HabitApp::saveDay() {
+    char path[64];
+    getFilePath(path);
+    
+    if (SD.exists(path)) {
+        SD.remove(path);
+    }
+    
+    File f = SD.open(path, FILE_WRITE);
+    if (f) {
+        f.println("ID_Kategorii;Czy_Zrobione;Nazwa_Nawyku");
+        for (int i = 0; i < CAT_COUNT; i++) {
+            for (const auto& item : columns[i]) {
+                int isDone = item.done ? 1 : 0;
+                f.printf("%d;%d;%s\n", i, isDone, item.text);
+            }
+        }
+        f.close();
+    }
+    
+    File sf = SD.open(DATA_PATH "/habit_lastdate.bin", FILE_WRITE);
+    if (sf) {
+        sf.write((uint8_t*)&viewYear, sizeof(int));
+        sf.write((uint8_t*)&viewMonth, sizeof(int));
+        sf.write((uint8_t*)&viewDay, sizeof(int));
+        sf.close();
+    }
+}
+
+void HabitApp::loadDay() {
+    // 1. Zresetuj wszystkie checkboxy na liście globalnej na niezaznaczone
+    for (int i = 0; i < CAT_COUNT; i++) {
+        for (auto& item : columns[i]) {
+            item.done = false;
+        }
+    }
+
+    char path[64];
+    getFilePath(path);
+    
+    // Jeśli nie ma pliku na ten dzień, nawyki pozostają na liście jako "niezrobione"
+    if (!SD.exists(path)) return; 
+    
+    File f = SD.open(path, FILE_READ);
+    if (!f) return;
+
+    bool isFirstLine = true;
+    while (f.available()) {
+        String line = f.readStringUntil('\n');
+        line.trim();
+        if (line.length() == 0) continue;
+
+        if (isFirstLine) {
+            isFirstLine = false; 
+            continue;
+        }
+
+        int firstSemi = line.indexOf(';');
+        if (firstSemi == -1) continue;
+        int secondSemi = line.indexOf(';', firstSemi + 1);
+        if (secondSemi == -1) continue;
+
+        int cat = line.substring(0, firstSemi).toInt();
+        int done = line.substring(firstSemi + 1, secondSemi).toInt();
+        String textStr = line.substring(secondSemi + 1);
+
+        if (cat >= 0 && cat < CAT_COUNT) {
+            // Szukamy nawyku o tej nazwie w aktualnej głównej liście 
+            for (auto& item : columns[cat]) {
+                if (String(item.text) == textStr) {
+                    item.done = (done == 1); // Zaznaczamy checkbox jeśli w pliku z dnia był zrobiony
+                    break;
+                }
+            }
         }
     }
     f.close();

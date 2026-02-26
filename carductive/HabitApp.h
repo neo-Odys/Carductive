@@ -7,7 +7,7 @@
 enum HabitCat { CAT_MORNING, CAT_AFTERNOON, CAT_EVENING, CAT_COUNT };
 
 struct HabitItem {
-    char text[32]; // Więcej miejsca na tekst
+    char text[32]; 
     bool done;
 };
 
@@ -19,25 +19,31 @@ public:
     bool isTypingMode();
 
 private:
-    // Tablica wektorów - 3 oddzielne listy
     std::vector<HabitItem> columns[CAT_COUNT];
     
-    int currentColumn = 0; // 0=Morning, 1=Afternoon, 2=Evening
+    int currentColumn = 0;
     int selectedIndex = 0;
     
     bool isTyping = false;
     char inputBuffer[32] = {0};
+    
+    int viewDay = 26;
+    int viewMonth = 2;
+    int viewYear = 2026;
     
     const char* catNames[CAT_COUNT] = {"MORNING", "AFTERNOON", "EVENING"};
 
     void toggleHabit();
     void addHabit(const char* text);
     void deleteHabit();
-    void moveHabit(int direction); // -1 góra, 1 dół
+    void moveHabit(int direction); 
+    void changeDate(int delta);
+    void getFilePath(char* buffer);
     
-    // Prosty zapis binarny (zeby nie traciec danych po restarcie)
-    void saveData(); 
-    void loadData();
+    void saveMaster(); 
+    void loadMaster();
+    void saveDay();
+    void loadDay();
 };
 
 #endif
