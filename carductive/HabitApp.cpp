@@ -5,9 +5,28 @@
 
 extern M5Canvas canvas;
 
-void HabitApp::getFilePath(char* buffer) {
-    sprintf(buffer, DATA_PATH "/h_%04d%02d%02d.csv", viewYear, viewMonth, viewDay);
+// --- SYSTEM ZAPISU (JEDEN LOG ZDARZEŃ DLA EXCELA) ---
+
+void HabitApp::saveLastDate() {
+    File sf = SD.open(DATA_PATH "/habit_lastdate.bin", FILE_WRITE);
+    if (sf) {
+        sf.write((uint8_t*)&viewYear, sizeof(int));
+        sf.write((uint8_t*)&viewMonth, sizeof(int));
+        sf.write((uint8_t*)&viewDay, sizeof(int));
+        sf.close();
+    }
 }
+
+void HabitApp::appendHabitState(int cat, const HabitItem& item) {
+    // Wszystko leci do jednego głównego pliku logów!
+    File f = SD.open(DATA_PATH "/habits_log.csv", FILE_APPEND);
+    if (f) {
+        f.printf("%04d-%02d-%02d;%d;%d;%s\n", viewYear, viewMonth, viewDay, cat, item.done ? 1 : 0, item.text);
+        f.close();
+    }
+}
+
+// ----------------------------------------------------
 
 void HabitApp::init() {
     bool isFirstRun = !SD.exists(DATA_PATH "/habit_lastdate.bin");
@@ -32,14 +51,40 @@ void HabitApp::init() {
         loadMaster();
     }
     
-    // Nałożenie zaznaczeń z dzisiejszego dnia na listę globalną
     loadDay();
-    saveDay(); 
+    saveLastDate(); 
 }
 
 bool HabitApp::isTypingMode() { 
     return isTyping; 
 }
+
+// --- NOWE FUNKCJE DO PŁYNNEGO PRZEWIJANIA KATEGORII STRZAŁKAMI ---
+
+bool HabitApp::moveColumnLeft() {
+    if (currentColumn > 0) {
+        currentColumn--;
+        selectedIndex = 0;
+        return true; 
+    }
+    return false; 
+}
+
+bool HabitApp::moveColumnRight() {
+    if (currentColumn < CAT_COUNT - 1) {
+        currentColumn++;
+        selectedIndex = 0;
+        return true; 
+    }
+    return false; 
+}
+
+void HabitApp::setColumn(int col) {
+    currentColumn = col;
+    selectedIndex = 0;
+}
+
+// -----------------------------------------------------------------
 
 void HabitApp::addHabit(const char* text) {
     if (text[0] == '\0') return;
@@ -51,8 +96,7 @@ void HabitApp::addHabit(const char* text) {
     columns[currentColumn].push_back(newItem);
     selectedIndex = columns[currentColumn].size() - 1;
     
-    saveMaster(); // Zapisz na globalną listę
-    saveDay();    // Zapisz aktualny dzień
+    saveMaster(); 
 }
 
 void HabitApp::deleteHabit() {
@@ -62,8 +106,7 @@ void HabitApp::deleteHabit() {
         if (selectedIndex >= (int)columns[currentColumn].size() && selectedIndex > 0) 
             selectedIndex--;
             
-        saveMaster(); // Usuwa z globalnej listy (znika wszędzie)
-        saveDay();
+        saveMaster(); 
     }
 }
 
@@ -72,14 +115,11 @@ void HabitApp::moveHabit(int direction) {
     if (newPos >= 0 && newPos < (int)columns[currentColumn].size()) {
         std::swap(columns[currentColumn][selectedIndex], columns[currentColumn][newPos]);
         selectedIndex = newPos;
-        saveMaster(); // Przesunięcie jest globalne
-        saveDay();
+        saveMaster(); 
     }
 }
 
 void HabitApp::changeDate(int delta) {
-    saveDay(); // Najpierw zapisz obecny dzień
-    
     viewDay += delta;
     int daysInMonth[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
     if (viewYear % 4 == 0 && (viewYear % 100 != 0 || viewYear % 400 == 0)) daysInMonth[2] = 29;
@@ -94,7 +134,8 @@ void HabitApp::changeDate(int delta) {
         viewDay = daysInMonth[viewMonth];
     }
     
-    loadDay(); // Wczytaj odznaczenia (checkboxy) dla nowego dnia
+    saveLastDate(); 
+    loadDay(); 
     selectedIndex = 0;
 }
 
@@ -102,7 +143,13 @@ void HabitApp::toggleHabit() {
     if (columns[currentColumn].empty()) return;
     if (selectedIndex >= 0 && selectedIndex < (int)columns[currentColumn].size()) {
         columns[currentColumn][selectedIndex].done = !columns[currentColumn][selectedIndex].done;
-        saveDay(); // Zaznaczenia zapisujemy TYLKO do tego konkretnego dnia
+        
+        appendHabitState(currentColumn, columns[currentColumn][selectedIndex]);
+
+        // Automatyczne przejście w dół po odhaczeniu nawyku
+        if (selectedIndex < (int)columns[currentColumn].size() - 1) {
+            selectedIndex++;
+        }
     }
 }
 
@@ -131,12 +178,6 @@ void HabitApp::update() {
         return;
     }
 
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_TAB)) {
-        currentColumn++;
-        if (currentColumn >= CAT_COUNT) currentColumn = 0;
-        selectedIndex = 0;
-    }
-
     if (M5Cardputer.Keyboard.isKeyPressed(';')) {
         if (selectedIndex > 0) selectedIndex--;
     } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
@@ -149,7 +190,8 @@ void HabitApp::update() {
         moveHabit(-1);  
     } else if (M5Cardputer.Keyboard.isKeyPressed('=')) {
         moveHabit(1);   
-    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) || M5Cardputer.Keyboard.isKeyPressed(' ')) {
+    // KEY_TAB został dodany tutaj, żeby robił to samo co Spacja/Enter
+    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) || M5Cardputer.Keyboard.isKeyPressed(' ') || M5Cardputer.Keyboard.isKeyPressed(KEY_TAB)) {
         toggleHabit();
     } else if (M5Cardputer.Keyboard.isKeyPressed('\\')) {
         isTyping = true;
@@ -173,7 +215,6 @@ void HabitApp::draw() {
     snprintf(dateStr, sizeof(dateStr), "[%02d.%02d.%02d]", viewDay, viewMonth, viewYear % 100);
     canvas.setTextColor(COL_ACCENT);
     
-    // DATA BARDZIEJ NA LEWO (z 235 na 205)
     canvas.drawRightString(dateStr, 180, 4); 
 
     int tabY = 20;
@@ -300,84 +341,51 @@ void HabitApp::loadMaster() {
             HabitItem item;
             strncpy(item.text, textStr.c_str(), 31);
             item.text[31] = '\0';
-            item.done = false; // Ładujemy zmasterowaną listę zawsze jako niezrobioną
+            item.done = false; 
             columns[cat].push_back(item);
         }
     }
     f.close();
 }
 
-void HabitApp::saveDay() {
-    char path[64];
-    getFilePath(path);
-    
-    if (SD.exists(path)) {
-        SD.remove(path);
-    }
-    
-    File f = SD.open(path, FILE_WRITE);
-    if (f) {
-        f.println("ID_Kategorii;Czy_Zrobione;Nazwa_Nawyku");
-        for (int i = 0; i < CAT_COUNT; i++) {
-            for (const auto& item : columns[i]) {
-                int isDone = item.done ? 1 : 0;
-                f.printf("%d;%d;%s\n", i, isDone, item.text);
-            }
-        }
-        f.close();
-    }
-    
-    File sf = SD.open(DATA_PATH "/habit_lastdate.bin", FILE_WRITE);
-    if (sf) {
-        sf.write((uint8_t*)&viewYear, sizeof(int));
-        sf.write((uint8_t*)&viewMonth, sizeof(int));
-        sf.write((uint8_t*)&viewDay, sizeof(int));
-        sf.close();
-    }
-}
-
 void HabitApp::loadDay() {
-    // 1. Zresetuj wszystkie checkboxy na liście globalnej na niezaznaczone
     for (int i = 0; i < CAT_COUNT; i++) {
         for (auto& item : columns[i]) {
             item.done = false;
         }
     }
 
-    char path[64];
-    getFilePath(path);
+    if (!SD.exists(DATA_PATH "/habits_log.csv")) return; 
     
-    // Jeśli nie ma pliku na ten dzień, nawyki pozostają na liście jako "niezrobione"
-    if (!SD.exists(path)) return; 
-    
-    File f = SD.open(path, FILE_READ);
+    File f = SD.open(DATA_PATH "/habits_log.csv", FILE_READ);
     if (!f) return;
 
-    bool isFirstLine = true;
+    char targetDate[16];
+    snprintf(targetDate, sizeof(targetDate), "%04d-%02d-%02d", viewYear, viewMonth, viewDay);
+
     while (f.available()) {
         String line = f.readStringUntil('\n');
         line.trim();
         if (line.length() == 0) continue;
 
-        if (isFirstLine) {
-            isFirstLine = false; 
-            continue;
-        }
-
         int firstSemi = line.indexOf(';');
         if (firstSemi == -1) continue;
-        int secondSemi = line.indexOf(';', firstSemi + 1);
-        if (secondSemi == -1) continue;
+        
+        String dateStr = line.substring(0, firstSemi);
+        if (dateStr != targetDate) continue;
 
-        int cat = line.substring(0, firstSemi).toInt();
-        int done = line.substring(firstSemi + 1, secondSemi).toInt();
-        String textStr = line.substring(secondSemi + 1);
+        int secondSemi = line.indexOf(';', firstSemi + 1);
+        int thirdSemi = line.indexOf(';', secondSemi + 1);
+        if (secondSemi == -1 || thirdSemi == -1) continue;
+
+        int cat = line.substring(firstSemi + 1, secondSemi).toInt();
+        int done = line.substring(secondSemi + 1, thirdSemi).toInt();
+        String textStr = line.substring(thirdSemi + 1);
 
         if (cat >= 0 && cat < CAT_COUNT) {
-            // Szukamy nawyku o tej nazwie w aktualnej głównej liście 
             for (auto& item : columns[cat]) {
                 if (String(item.text) == textStr) {
-                    item.done = (done == 1); // Zaznaczamy checkbox jeśli w pliku z dnia był zrobiony
+                    item.done = (done == 1); 
                     break;
                 }
             }

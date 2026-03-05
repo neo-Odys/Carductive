@@ -12,13 +12,17 @@ struct HabitItem {
 };
 
 class HabitApp {
-public:
+public: // <-- TE FUNKCJE MUSZĄ BYĆ TUTAJ
     void init();
     void update();
     void draw();
     bool isTypingMode();
 
-private:
+    bool moveColumnLeft();
+    bool moveColumnRight();
+    void setColumn(int col);
+
+private: // <-- A ZMIENNE DOPIERO TUTAJ
     std::vector<HabitItem> columns[CAT_COUNT];
     
     int currentColumn = 0;
@@ -38,12 +42,13 @@ private:
     void deleteHabit();
     void moveHabit(int direction); 
     void changeDate(int delta);
-    void getFilePath(char* buffer);
     
     void saveMaster(); 
     void loadMaster();
-    void saveDay();
+    
     void loadDay();
+    void appendHabitState(int cat, const HabitItem& item);
+    void saveLastDate();
 };
 
 #endif

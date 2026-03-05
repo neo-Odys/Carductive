@@ -114,7 +114,6 @@ void setup() {
 
 void loop() {
   M5Cardputer.update();
-
   bool isAction = M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed();
   bool isPomodoro = (currentMode == APP_POMODORO);
 
@@ -141,29 +140,42 @@ void loop() {
     }
   }
 
+  // TUTAJ BRAKOWAŁO ZMIENNEJ BLOCKED:
   bool blocked = false;
   if (currentMode == APP_TODO && todoApp.isTypingMode()) blocked = true;
   if (currentMode == APP_HABIT && habitApp.isTypingMode()) blocked = true;
   if (isPomodoro && pomodoroApp.isActive()) blocked = true;
 
   bool appSwitched = false;
-
   if (isAction && !blocked) {
+    // Klawisz ',' (w lewo / poprzednia aplikacja)
     if (M5Cardputer.Keyboard.isKeyPressed(',')) {
-      currentMode = (AppMode)((currentMode - 1 + APP_COUNT) % APP_COUNT);
-      appSwitched = true;
-    } else if (M5Cardputer.Keyboard.isKeyPressed('/')) {
-      currentMode = (AppMode)((currentMode + 1) % APP_COUNT);
-      appSwitched = true;
+      if (currentMode == APP_HABIT && habitApp.moveColumnLeft()) {
+        // Przechwycone przez HabitApp
+      } else {
+        currentMode = (AppMode)((currentMode - 1 + APP_COUNT) % APP_COUNT);
+        appSwitched = true;
+        if (currentMode == APP_HABIT) habitApp.setColumn(CAT_EVENING); 
+      }
+    } 
+    // Klawisz '/' (w prawo / następna aplikacja)
+    else if (M5Cardputer.Keyboard.isKeyPressed('/')) {
+      if (currentMode == APP_HABIT && habitApp.moveColumnRight()) {
+        // Przechwycone przez HabitApp
+      } else {
+        currentMode = (AppMode)((currentMode + 1) % APP_COUNT);
+        appSwitched = true;
+        if (currentMode == APP_HABIT) habitApp.setColumn(CAT_MORNING); 
+      }
     }
   }
 
   if (!appSwitched) {
     if (isPomodoro) {
-      handleUpdate(); // Always update Pomodoro for timer accuracy
+      handleUpdate();
     } else {
       if (isAction) {
-        handleUpdate(); // Update others only on input
+        handleUpdate();
       }
     }
   }
