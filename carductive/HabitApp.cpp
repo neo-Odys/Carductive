@@ -1,3 +1,4 @@
+// ==================== HabitApp.cpp ====================
 #include "HabitApp.h"
 #include "Global.h"
 #include <M5GFX.h>
@@ -5,43 +6,15 @@
 
 extern M5Canvas canvas;
 
-// --- SYSTEM ZAPISU (JEDEN LOG ZDARZEŃ DLA EXCELA) ---
-
-void HabitApp::saveLastDate() {
-    File sf = SD.open(DATA_PATH "/habit_lastdate.bin", FILE_WRITE);
-    if (sf) {
-        sf.write((uint8_t*)&viewYear, sizeof(int));
-        sf.write((uint8_t*)&viewMonth, sizeof(int));
-        sf.write((uint8_t*)&viewDay, sizeof(int));
-        sf.close();
-    }
-}
-
 void HabitApp::appendHabitState(int cat, const HabitItem& item) {
-    // Wszystko leci do jednego głównego pliku logów!
     File f = SD.open(DATA_PATH "/habits_log.csv", FILE_APPEND);
     if (f) {
-        f.printf("%04d-%02d-%02d;%d;%d;%s\n", viewYear, viewMonth, viewDay, cat, item.done ? 1 : 0, item.text);
+        f.printf("%04d-%02d-%02d;%d;%d;%s\n", globalYear, globalMonth, globalDay, cat, item.done ? 1 : 0, item.text);
         f.close();
     }
 }
 
-// ----------------------------------------------------
-
 void HabitApp::init() {
-    bool isFirstRun = !SD.exists(DATA_PATH "/habit_lastdate.bin");
-    
-    if (!isFirstRun) {
-        File sf = SD.open(DATA_PATH "/habit_lastdate.bin", FILE_READ);
-        if (sf) {
-            sf.read((uint8_t*)&viewYear, sizeof(int));
-            sf.read((uint8_t*)&viewMonth, sizeof(int));
-            sf.read((uint8_t*)&viewDay, sizeof(int));
-            sf.close();
-        }
-    }
-    
-    // Ładowanie listy globalnej (Master List)
     if (!SD.exists(DATA_PATH "/habits_master.csv")) {
         columns[CAT_MORNING].push_back({"Drink Water", false});
         columns[CAT_AFTERNOON].push_back({"Read Book", false});
@@ -52,19 +25,17 @@ void HabitApp::init() {
     }
     
     loadDay();
-    saveLastDate(); 
 }
 
 bool HabitApp::isTypingMode() { 
     return isTyping; 
 }
 
-// --- NOWE FUNKCJE DO PŁYNNEGO PRZEWIJANIA KATEGORII STRZAŁKAMI ---
-
 bool HabitApp::moveColumnLeft() {
     if (currentColumn > 0) {
         currentColumn--;
         selectedIndex = 0;
+        isReordering = false;
         return true; 
     }
     return false; 
@@ -74,6 +45,7 @@ bool HabitApp::moveColumnRight() {
     if (currentColumn < CAT_COUNT - 1) {
         currentColumn++;
         selectedIndex = 0;
+        isReordering = false;
         return true; 
     }
     return false; 
@@ -82,9 +54,8 @@ bool HabitApp::moveColumnRight() {
 void HabitApp::setColumn(int col) {
     currentColumn = col;
     selectedIndex = 0;
+    isReordering = false;
 }
-
-// -----------------------------------------------------------------
 
 void HabitApp::addHabit(const char* text) {
     if (text[0] == '\0') return;
@@ -120,23 +91,24 @@ void HabitApp::moveHabit(int direction) {
 }
 
 void HabitApp::changeDate(int delta) {
-    viewDay += delta;
+    globalDay += delta;
     int daysInMonth[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
-    if (viewYear % 4 == 0 && (viewYear % 100 != 0 || viewYear % 400 == 0)) daysInMonth[2] = 29;
+    if (globalYear % 4 == 0 && (globalYear % 100 != 0 || globalYear % 400 == 0)) daysInMonth[2] = 29;
     
-    if (viewDay > daysInMonth[viewMonth]) {
-        viewDay = 1;
-        viewMonth++;
-        if (viewMonth > 12) { viewMonth = 1; viewYear++; }
-    } else if (viewDay < 1) {
-        viewMonth--;
-        if (viewMonth < 1) { viewMonth = 12; viewYear--; }
-        viewDay = daysInMonth[viewMonth];
+    if (globalDay > daysInMonth[globalMonth]) {
+        globalDay = 1;
+        globalMonth++;
+        if (globalMonth > 12) { globalMonth = 1; globalYear++; }
+    } else if (globalDay < 1) {
+        globalMonth--;
+        if (globalMonth < 1) { globalMonth = 12; globalYear--; }
+        globalDay = daysInMonth[globalMonth];
     }
     
-    saveLastDate(); 
+    saveGlobalDate(); 
     loadDay(); 
     selectedIndex = 0;
+    isReordering = false;
 }
 
 void HabitApp::toggleHabit() {
@@ -146,7 +118,6 @@ void HabitApp::toggleHabit() {
         
         appendHabitState(currentColumn, columns[currentColumn][selectedIndex]);
 
-        // Automatyczne przejście w dół po odhaczeniu nawyku
         if (selectedIndex < (int)columns[currentColumn].size() - 1) {
             selectedIndex++;
         }
@@ -178,6 +149,17 @@ void HabitApp::update() {
         return;
     }
 
+    if (isReordering) {
+        if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+            isReordering = false;
+        } else if (M5Cardputer.Keyboard.isKeyPressed(';')) {
+            moveHabit(-1);
+        } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
+            moveHabit(1);
+        }
+        return;
+    }
+
     if (M5Cardputer.Keyboard.isKeyPressed(';')) {
         if (selectedIndex > 0) selectedIndex--;
     } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
@@ -186,12 +168,9 @@ void HabitApp::update() {
         changeDate(-1); 
     } else if (M5Cardputer.Keyboard.isKeyPressed(']')) {
         changeDate(1);  
-    } else if (M5Cardputer.Keyboard.isKeyPressed('-')) {
-        moveHabit(-1);  
-    } else if (M5Cardputer.Keyboard.isKeyPressed('=')) {
-        moveHabit(1);   
-    // KEY_TAB został dodany tutaj, żeby robił to samo co Spacja/Enter
-    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) || M5Cardputer.Keyboard.isKeyPressed(' ') || M5Cardputer.Keyboard.isKeyPressed(KEY_TAB)) {
+    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+        if (!columns[currentColumn].empty()) isReordering = true;
+    } else if (M5Cardputer.Keyboard.isKeyPressed(' ') || M5Cardputer.Keyboard.isKeyPressed(KEY_TAB)) {
         toggleHabit();
     } else if (M5Cardputer.Keyboard.isKeyPressed('\\')) {
         isTyping = true;
@@ -206,16 +185,22 @@ void HabitApp::draw() {
 
     canvas.fillRect(0, 0, 240, 20, COL_HEADER_BG);
     
-    canvas.setTextColor(WHITE);
     canvas.setTextSize(1.5);
     canvas.setCursor(5, 4);
-    canvas.print("HABITS");
+
+    if (isReordering) {
+        canvas.setTextColor(COL_ACCENT);
+        canvas.print("HABITS [REORDER]");
+    } else {
+        canvas.setTextColor(WHITE);
+        canvas.print("HABITS");
+    }
 
     char dateStr[20];
-    snprintf(dateStr, sizeof(dateStr), "[%02d.%02d.%02d]", viewDay, viewMonth, viewYear % 100);
+    snprintf(dateStr, sizeof(dateStr), "[%02d.%02d.%02d]", globalDay, globalMonth, globalYear % 100);
     canvas.setTextColor(COL_ACCENT);
     
-    canvas.drawRightString(dateStr, 180, 4); 
+    canvas.drawRightString(dateStr, 195, 4); 
 
     int tabY = 20;
     int tabH = 22;
@@ -264,7 +249,7 @@ void HabitApp::draw() {
             HabitItem& item = currentList[idx];
 
             if (isSel) {
-                canvas.fillRoundRect(2, y, 236, 17, 3, COL_HIGHLIGHT);
+                canvas.fillRoundRect(2, y, 236, 17, 3, isReordering ? COL_ACCENT : COL_HIGHLIGHT);
             }
 
             int boxSize = 11;
@@ -361,7 +346,7 @@ void HabitApp::loadDay() {
     if (!f) return;
 
     char targetDate[16];
-    snprintf(targetDate, sizeof(targetDate), "%04d-%02d-%02d", viewYear, viewMonth, viewDay);
+    snprintf(targetDate, sizeof(targetDate), "%04d-%02d-%02d", globalYear, globalMonth, globalDay);
 
     while (f.available()) {
         String line = f.readStringUntil('\n');

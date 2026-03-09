@@ -1,3 +1,4 @@
+// ==================== HabitApp.h ====================
 #ifndef HABITAPP_H
 #define HABITAPP_H
 
@@ -12,7 +13,7 @@ struct HabitItem {
 };
 
 class HabitApp {
-public: // <-- TE FUNKCJE MUSZĄ BYĆ TUTAJ
+public:
     void init();
     void update();
     void draw();
@@ -22,18 +23,15 @@ public: // <-- TE FUNKCJE MUSZĄ BYĆ TUTAJ
     bool moveColumnRight();
     void setColumn(int col);
 
-private: // <-- A ZMIENNE DOPIERO TUTAJ
+private:
     std::vector<HabitItem> columns[CAT_COUNT];
     
     int currentColumn = 0;
     int selectedIndex = 0;
     
     bool isTyping = false;
+    bool isReordering = false;
     char inputBuffer[32] = {0};
-    
-    int viewDay = 26;
-    int viewMonth = 2;
-    int viewYear = 2026;
     
     const char* catNames[CAT_COUNT] = {"MORNING", "AFTERNOON", "EVENING"};
 
@@ -48,7 +46,6 @@ private: // <-- A ZMIENNE DOPIERO TUTAJ
     
     void loadDay();
     void appendHabitState(int cat, const HabitItem& item);
-    void saveLastDate();
 };
 
 #endif

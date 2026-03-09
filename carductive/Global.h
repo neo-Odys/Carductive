@@ -1,3 +1,4 @@
+// ==================== Global.h ====================
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
@@ -19,9 +20,9 @@ enum AppMode {
     APP_COUNT
 };
 
-#define BRIGHT_HIGH  80
-#define BRIGHT_DIM   6
-#define DIM_DELAY_MS 15000
+#define BRIGHT_HIGH  70
+#define BRIGHT_DIM   15
+#define DIM_DELAY_MS 150000
 
 #define COL_BG          0x10A2
 #define COL_HEADER_BG   0x0841
@@ -41,5 +42,12 @@ enum AppMode {
 #define COL_REORDER     COL_P3
 
 #define DATA_PATH "/Carductive"
+
+extern int globalDay;
+extern int globalMonth;
+extern int globalYear;
+extern int globalHour;
+
+void saveGlobalDate();
 
 #endif
