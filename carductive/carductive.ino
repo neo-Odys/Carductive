@@ -22,8 +22,8 @@ unsigned long lastActivityTime = 0;
 bool isScreenDimmed = false;
 bool needsRedraw = true;
 
-int globalDay = 26;
-int globalMonth = 2;
+int globalDay = 14;
+int globalMonth = 3;
 int globalYear = 2026;
 int globalHour = 12;
 
@@ -209,9 +209,8 @@ if (isAction) {
     }
   }
 
-  if (isPomodoro && pomodoroApp.isActive()) {
+  if (!isAction && isPomodoro && pomodoroApp.isActive()) {
       handleUpdate();
-      needsRedraw = true; 
   }
 
   if (needsRedraw) {

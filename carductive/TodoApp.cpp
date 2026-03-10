@@ -345,7 +345,7 @@ void TodoApp::loadFromSD() {
     t4.done = false;
     todoList.push_back(t4);
 
-    addTask("New: \\ , Done: Spc");
+    addTask("New: \\ , Done: Enter");
 
     addTask("Move: Enter");
 

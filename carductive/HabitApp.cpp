@@ -64,8 +64,13 @@ void HabitApp::addHabit(const char* text) {
     newItem.text[31] = '\0';
     newItem.done = false;
     
-    columns[currentColumn].push_back(newItem);
-    selectedIndex = columns[currentColumn].size() - 1;
+    if (columns[currentColumn].empty()) {
+        columns[currentColumn].push_back(newItem);
+        selectedIndex = 0;
+    } else {
+        columns[currentColumn].insert(columns[currentColumn].begin() + selectedIndex + 1, newItem);
+        selectedIndex++;
+    }
     
     saveMaster(); 
 }
@@ -200,7 +205,7 @@ void HabitApp::draw() {
     snprintf(dateStr, sizeof(dateStr), "[%02d.%02d.%02d]", globalDay, globalMonth, globalYear % 100);
     canvas.setTextColor(COL_ACCENT);
     
-    canvas.drawRightString(dateStr, 195, 4); 
+    canvas.drawRightString(dateStr, 190, 4); 
 
     int tabY = 20;
     int tabH = 22;

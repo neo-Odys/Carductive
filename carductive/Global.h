@@ -20,8 +20,8 @@ enum AppMode {
     APP_COUNT
 };
 
-#define BRIGHT_HIGH  70
-#define BRIGHT_DIM   15
+#define BRIGHT_HIGH  64
+#define BRIGHT_DIM   12
 #define DIM_DELAY_MS 150000
 
 #define COL_BG          0x10A2
