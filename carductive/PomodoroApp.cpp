@@ -4,6 +4,7 @@
 #include <SD.h>
 
 extern M5Canvas canvas;
+extern bool needsRedraw;
 
 PomodoroApp::PomodoroApp() {
     isRunning = false;
@@ -68,126 +69,104 @@ void PomodoroApp::saveSettings() {
 }
 
 void PomodoroApp::update() {
-    static bool prevL = false;
-    bool kL = M5Cardputer.Keyboard.isKeyPressed('l');
+    static unsigned long lastKeyTime = 0;
+    bool keyProcessed = false;
 
-    if (kL && !prevL) {
-        showLegend = !showLegend;
-    }
-    prevL = kL;
-
-    if (showLegend) {
-        if (M5Cardputer.Keyboard.isKeyPressed(KEY_ESC) || 
-            M5Cardputer.Keyboard.isKeyPressed('`')) {
-            showLegend = false;
-        }
-        return; 
-    }
-
-    static bool prevEnter = false;
-    static bool prevBksp = false;
-    static bool prevUp = false;
-    static bool prevDown = false;
-    static bool prevLBracket = false;
-    static bool prevRBracket = false;
-    static bool prevTab = false;
-    static bool prevA = false;
-
-    bool kEnter = M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER);
-    bool kBksp  = M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE);
-    bool kUp    = M5Cardputer.Keyboard.isKeyPressed(';');
-    bool kDown  = M5Cardputer.Keyboard.isKeyPressed('.');
-    bool kLeftBr = M5Cardputer.Keyboard.isKeyPressed('[');
-    bool kRightBr = M5Cardputer.Keyboard.isKeyPressed(']');
-    bool kTab   = M5Cardputer.Keyboard.isKeyPressed(KEY_TAB);
-    bool kA     = M5Cardputer.Keyboard.isKeyPressed('a');
-
-    if (kEnter && !prevEnter) {
-        isRunning = !isRunning;
-        M5.Speaker.tone(1000, 100);
-        lastTick = millis(); 
-    }
-    prevEnter = kEnter;
-
-    if (kBksp && !prevBksp) {
-        isRunning = false;
-        timeLeft = isBreak ? breakDuration : workDuration;
-        M5.Speaker.tone(800, 50);
-    }
-    prevBksp = kBksp;
-
-    if (kTab && !prevTab) {
-        isBreak = !isBreak;
-        isRunning = false;
-        timeLeft = isBreak ? breakDuration : workDuration;
-        M5.Speaker.tone(1500, 50);
-    }
-    prevTab = kTab;
-
-    if (kA && !prevA) {
-        autoStart = !autoStart;
-        saveSettings();
-        M5.Speaker.tone(autoStart ? 1200 : 800, 50);
-    }
-    prevA = kA;
-
-    bool volChanged = false;
-    if (kUp && !prevUp) {
-        volume += 25;
-        if (volume > 255) volume = 255;
-        volChanged = true;
-        M5.Speaker.tone(1200, 20);
-    }
-    prevUp = kUp;
-
-    if (kDown && !prevDown) {
-        volume -= 25;
-        if (volume < 0) volume = 0;
-        volChanged = true;
-        M5.Speaker.tone(800, 20);
-    }
-    prevDown = kDown;
-
-    if (volChanged) {
-        M5.Speaker.setVolume(volume);
-        saveSettings();
-    }
-
-    int timeStep = 5 * 60;
-    bool timeChanged = false;
-
-    if (kLeftBr && !prevLBracket) {
-        timeLeft -= timeStep;
-        if (timeLeft < 0) timeLeft = 0;
-        if (isBreak) {
-            breakDuration -= timeStep;
-            if (breakDuration < 0) breakDuration = 0;
+    if (millis() - lastKeyTime > 200) {
+        if (showLegend) {
+            if (M5Cardputer.Keyboard.isKeyPressed(KEY_ESC) || 
+                M5Cardputer.Keyboard.isKeyPressed('`') ||
+                M5Cardputer.Keyboard.isKeyPressed('l')) {
+                showLegend = false;
+                keyProcessed = true;
+            }
         } else {
-            workDuration -= timeStep;
-            if (workDuration < 0) workDuration = 0;
+            if (M5Cardputer.Keyboard.isKeyPressed('l')) {
+                showLegend = true;
+                keyProcessed = true;
+            } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+                isRunning = !isRunning;
+                M5.Speaker.tone(1000, 100);
+                lastTick = millis(); 
+                keyProcessed = true;
+            } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+                isRunning = false;
+                timeLeft = isBreak ? breakDuration : workDuration;
+                M5.Speaker.tone(800, 50);
+                keyProcessed = true;
+            } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_TAB) || M5Cardputer.Keyboard.isKeyPressed(' ')) {
+                isBreak = !isBreak;
+                isRunning = false;
+                timeLeft = isBreak ? breakDuration : workDuration;
+                M5.Speaker.tone(1500, 50);
+                keyProcessed = true;
+            } else if (M5Cardputer.Keyboard.isKeyPressed('a')) {
+                autoStart = !autoStart;
+                saveSettings();
+                M5.Speaker.tone(autoStart ? 1200 : 800, 50);
+                keyProcessed = true;
+            } else {
+                bool volChanged = false;
+                if (M5Cardputer.Keyboard.isKeyPressed(';')) {
+                    volume += 25;
+                    if (volume > 255) volume = 255;
+                    volChanged = true;
+                    M5.Speaker.tone(1200, 20);
+                    keyProcessed = true;
+                } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
+                    volume -= 25;
+                    if (volume < 0) volume = 0;
+                    volChanged = true;
+                    M5.Speaker.tone(800, 20);
+                    keyProcessed = true;
+                }
+
+                if (volChanged) {
+                    M5.Speaker.setVolume(volume);
+                    saveSettings();
+                }
+
+                int timeStep = 5 * 60;
+                bool timeChanged = false;
+
+                if (M5Cardputer.Keyboard.isKeyPressed('[')) {
+                    timeLeft -= timeStep;
+                    if (timeLeft < 0) timeLeft = 0;
+                    if (isBreak) {
+                        breakDuration -= timeStep;
+                        if (breakDuration < 0) breakDuration = 0;
+                    } else {
+                        workDuration -= timeStep;
+                        if (workDuration < 0) workDuration = 0;
+                    }
+                    timeChanged = true;
+                    M5.Speaker.tone(600, 50);
+                    keyProcessed = true;
+                } else if (M5Cardputer.Keyboard.isKeyPressed(']')) {
+                    timeLeft += timeStep;
+                    if (isBreak) breakDuration += timeStep;
+                    else workDuration += timeStep;
+                    timeChanged = true;
+                    M5.Speaker.tone(1400, 50);
+                    keyProcessed = true;
+                }
+
+                if (timeChanged) {
+                    saveSettings();
+                }
+            }
         }
-        timeChanged = true;
-        M5.Speaker.tone(600, 50);
-    }
-    prevLBracket = kLeftBr;
-
-    if (kRightBr && !prevRBracket) {
-        timeLeft += timeStep;
-        if (isBreak) breakDuration += timeStep;
-        else workDuration += timeStep;
-        timeChanged = true;
-        M5.Speaker.tone(1400, 50);
-    }
-    prevRBracket = kRightBr;
-
-    if (timeChanged) {
-        saveSettings();
+        
+        if (keyProcessed) {
+            lastKeyTime = millis();
+        }
     }
 
     if (isRunning && timeLeft > 0) {
         if (millis() - lastTick >= 1000) {
             timeLeft--;
             lastTick = millis();
+            needsRedraw = true; 
             
             if (timeLeft <= 0) {
                 M5.Speaker.tone(2000, 200);
@@ -228,7 +207,6 @@ void PomodoroApp::draw() {
     char timeStr[10];
     sprintf(timeStr, "%02d:%02d", minutes, seconds);
 
-    // Timer moved up to 35
     canvas.setTextSize(5);
     if (isBreak) {
         if (isRunning) canvas.setTextColor(COL_P3);
