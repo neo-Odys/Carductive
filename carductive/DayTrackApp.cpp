@@ -5,25 +5,23 @@
 
 extern M5Canvas canvas;
 
-#define CAT_UNI     0x6CDB 
-#define CAT_STUDY   0x441F 
-#define CAT_PROJ    0x9FD3 
-#define CAT_PROD    0x2595
-#define CAT_FAM     0xEC66 
-#define CAT_FRIEND  0xE4E0
-#define CAT_EXER    0xFFE0 
-#define CAT_RUN     0xFDA0
-#define CAT_SPORT   0xFBE4
-#define CAT_ROUT    0x83B5 
-#define CAT_CHORES  0xA3B5
-#define CAT_READ    0x9E1C 
-#define CAT_RELAX   0xC476 
-#define CAT_GAMES   0x4E1C
-#define CAT_WASTE   0xFFFF 
-#define CAT_SCROLL  0xFE20
-#define CAT_SLEEP   0x8410 
-#define CAT_NAP     0x6308
-#define CAT_EMPTY   0x0000 
+#define CAT_UNI          0x6596 // Jasny niebieski
+#define CAT_STUDY        0x5bba // Ciemniejszy, żywszy niebieski
+#define CAT_PROJ         0x766f // Świeży zielony
+#define CAT_PROD         0x6673 // Morski / Teal
+#define CAT_FAM          0xd34f // Ciepły pomarańczowy
+#define CAT_FRIEND       0xe70b // Miodowo-żółty
+#define CAT_CALISTHENICS 0xb3da // Oliwkowo-żółty 
+#define CAT_SPORT        0xFCEB // Koralowy / Brzoskwiniowy
+#define CAT_ROUT         0xb538 // Fioletowy / Lawendowy
+#define CAT_CHORES       0xbc79 // Różowo-fioletowy
+#define CAT_READ         0x8dbc // Chłodny błękit
+#define CAT_RELAX        0xdc99 // Pudrowy róż
+#define CAT_GAMES        0x6e7c // Błękitny / Cyjan
+#define CAT_WASTE        0xf800 // Szary
+#define CAT_TRANSIT      0xBC2D // Cynamonowy / Zgaszony brąz
+#define CAT_SLEEP        0x9CD3 // Ciemniejszy szary / Stalowy
+#define CAT_EMPTY        0x0000 // Czarny
 
 void DayTrackApp::init() {
     loadForCurrentDate();
@@ -31,30 +29,44 @@ void DayTrackApp::init() {
 
 uint16_t DayTrackApp::getCatColor(int id) {
     switch(id) {
-        case 1: return CAT_UNI;     case 2: return CAT_STUDY;
-        case 3: return CAT_PROJ;    case 4: return CAT_PROD;
-        case 5: return CAT_FAM;     case 6: return CAT_FRIEND;
-        case 7: return CAT_EXER;    case 8: return CAT_RUN;
-        case 9: return CAT_SPORT;   case 10: return CAT_ROUT;
-        case 11: return CAT_CHORES; case 12: return CAT_READ;
-        case 13: return CAT_RELAX;  case 14: return CAT_GAMES;
-        case 15: return CAT_WASTE;  case 16: return CAT_SCROLL;
-        case 17: return CAT_SLEEP;  case 18: return CAT_NAP;
+        case 1: return CAT_UNI;          case 2: return CAT_STUDY;
+        case 3: return CAT_PROJ;         case 4: return CAT_PROD;
+        case 5: return CAT_FAM;          case 6: return CAT_FRIEND;
+        case 7: return CAT_CALISTHENICS; 
+        case 8: // Fallback dla usuniętego RUN
+        case 9: return CAT_SPORT;   
+        case 10: return CAT_ROUT;        case 11: return CAT_CHORES;
+        case 12: return CAT_READ;        case 13: return CAT_RELAX;
+        case 14: return CAT_GAMES;
+        case 15: 
+        case 16: // Fallback dla usuniętego SCROLL
+            return CAT_WASTE;  
+        case 17: 
+        case 18: // Fallback dla usuniętego NAP
+            return CAT_SLEEP;
+        case 19: return CAT_TRANSIT;
         default: return CAT_EMPTY;
     }
 }
 
 const char* DayTrackApp::getCatName(int id) {
     switch(id) {
-        case 1: return "UNI";       case 2: return "STUDY";
-        case 3: return "PROJECT";   case 4: return "PRODUCTIVE";
-        case 5: return "FAMILY";    case 6: return "FRIENDS";
-        case 7: return "EXERCISE";  case 8: return "RUNNING";
-        case 9: return "SPORT";     case 10: return "ROUTINE";
-        case 11: return "CHORES";   case 12: return "READ";
-        case 13: return "RELAX";    case 14: return "GAMES";
-        case 15: return "WASTE";    case 16: return "SCROLL";
-        case 17: return "SLEEP";    case 18: return "NAP";
+        case 1: return "UNI";            case 2: return "STUDY";
+        case 3: return "PROJECT";        case 4: return "PRODUCTIVE";
+        case 5: return "FAMILY";         case 6: return "FRIENDS";
+        case 7: return "CALISTHENICS";   
+        case 8: // Fallback
+        case 9: return "SPORT";     
+        case 10: return "ROUTINE";       case 11: return "CHORES";
+        case 12: return "READ";          case 13: return "RELAX";    
+        case 14: return "GAMES";
+        case 15: 
+        case 16: // Fallback
+            return "WASTE";    
+        case 17: 
+        case 18: // Fallback
+            return "SLEEP";    
+        case 19: return "TRANSIT";
         default: return "EMPTY";
     }
 }
@@ -162,9 +174,7 @@ void DayTrackApp::update() {
         changed = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('4')) {
         int c = daySchedule[globalHour];
-        if (c == 7) daySchedule[globalHour] = 8;
-        else if (c == 8) daySchedule[globalHour] = 9;
-        else daySchedule[globalHour] = 7;
+        daySchedule[globalHour] = (c == 7) ? 9 : 7;
         changed = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('5')) {
         int c = daySchedule[globalHour];
@@ -178,11 +188,11 @@ void DayTrackApp::update() {
         changed = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('7')) {
         int c = daySchedule[globalHour];
-        daySchedule[globalHour] = (c == 15) ? 16 : 15;
+        daySchedule[globalHour] = (c == 15) ? 19 : 15;
         changed = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('8')) {
         int c = daySchedule[globalHour];
-        daySchedule[globalHour] = (c == 17) ? 18 : 17;
+        daySchedule[globalHour] = (c == 17) ? 0 : 17;
         changed = true;
     } 
     else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
@@ -214,7 +224,7 @@ void DayTrackApp::draw() {
     snprintf(dateStr, sizeof(dateStr), "[%02d.%02d.%02d]", globalDay, globalMonth, globalYear % 100);
     
     canvas.setTextColor(COL_ACCENT);
-    canvas.drawRightString(dateStr, 195, 4); 
+    canvas.drawRightString(dateStr, 190, 4); 
 
     drawTimeline();
 }
@@ -297,11 +307,11 @@ void DayTrackApp::drawLegendScreen() {
     canvas.drawString("1: UNI/STUDY", 10, y);     
     canvas.drawString("2: PROJ/PROD", 120, y); y += 14;
     canvas.drawString("3: FAM/FRIEND", 10, y); 
-    canvas.drawString("4: EXER/RUN/SPORT", 120, y); y += 14;
+    canvas.drawString("4: CALIS/SPORT", 120, y); y += 14;
     canvas.drawString("5: ROUT/CHORE", 10, y); 
     canvas.drawString("6: READ/RLX/GAME", 120, y); y += 14;
-    canvas.drawString("7: WASTE/SCROLL", 10, y);
-    canvas.drawString("8: SLEEP/NAP", 120, y); y += 14;
+    canvas.drawString("7: WASTE/TRANSIT", 10, y);
+    canvas.drawString("8: SLEEP/CLEAR", 120, y); y += 14;
 
     canvas.setTextColor(COL_ACCENT);
     canvas.drawCenterString("[ Press L to return ]", 120, 120);
