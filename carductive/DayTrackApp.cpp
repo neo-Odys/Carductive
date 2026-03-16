@@ -5,23 +5,71 @@
 
 extern M5Canvas canvas;
 
-#define CAT_UNI          0x6596 // Jasny niebieski
-#define CAT_STUDY        0x5bba // Ciemniejszy, żywszy niebieski
-#define CAT_PROJ         0x766f // Świeży zielony
-#define CAT_PROD         0x6673 // Morski / Teal
-#define CAT_FAM          0xd34f // Ciepły pomarańczowy
-#define CAT_FRIEND       0xe70b // Miodowo-żółty
-#define CAT_CALISTHENICS 0xb3da // Oliwkowo-żółty 
-#define CAT_SPORT        0xFCEB // Koralowy / Brzoskwiniowy
-#define CAT_ROUT         0xb538 // Fioletowy / Lawendowy
-#define CAT_CHORES       0xbc79 // Różowo-fioletowy
-#define CAT_READ         0x8dbc // Chłodny błękit
-#define CAT_RELAX        0xdc99 // Pudrowy róż
-#define CAT_GAMES        0x6e7c // Błękitny / Cyjan
-#define CAT_WASTE        0xf800 // Szary
-#define CAT_TRANSIT      0xBC2D // Cynamonowy / Zgaszony brąz
-#define CAT_SLEEP        0x9CD3 // Ciemniejszy szary / Stalowy
-#define CAT_EMPTY        0x0000 // Czarny
+#define CAT_UNI          0x6596
+#define CAT_STUDY        0x5bba
+#define CAT_PROJ         0x766f
+#define CAT_PROD         0x6673
+#define CAT_FAM          0xd34f
+#define CAT_FRIEND       0xe70b
+#define CAT_CALISTHENICS 0xb3da
+#define CAT_SPORT        0xFCEB
+#define CAT_ROUT         0xb538
+#define CAT_CHORES       0xbc79
+#define CAT_READ         0x8dbc
+#define CAT_RELAX        0xdc99
+#define CAT_GAMES        0x6e7c
+#define CAT_WASTE        0xf800
+#define CAT_TRANSIT      0xBC2D
+#define CAT_SLEEP        0x9CD3
+#define CAT_EMPTY        0x0000
+
+static bool isDirty = false;
+static unsigned long lastEditTime = 0;
+
+static int getDayOfYear(int day, int month, int year) {
+    int daysInMonth[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+    if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) daysInMonth[1] = 29;
+    int doy = 0;
+    for (int i = 0; i < month - 1; i++) {
+        doy += daysInMonth[i];
+    }
+    return doy + day;
+}
+
+static void exportToCSV() {
+    char binPath[64], csvPath[64];
+    snprintf(binPath, sizeof(binPath), DATA_PATH "/track_%04d.bin", globalYear);
+    snprintf(csvPath, sizeof(csvPath), DATA_PATH "/export_%04d.csv", globalYear);
+    
+    if (SD.exists(binPath)) {
+        File fIn = SD.open(binPath, FILE_READ);
+        File fOut = SD.open(csvPath, FILE_WRITE);
+        if (fIn && fOut) {
+            fOut.println("DayOfYear;H00;H01;H02;H03;H04;H05;H06;H07;H08;H09;H10;H11;H12;H13;H14;H15;H16;H17;H18;H19;H20;H21;H22;H23");
+            uint8_t buffer[24];
+            int dayCounter = 1;
+            while (fIn.available()) {
+                int bytesRead = fIn.read(buffer, 24);
+                if (bytesRead == 24) {
+                    bool hasData = false;
+                    for (int i = 0; i < 24; i++) {
+                        if (buffer[i] != 0) hasData = true;
+                    }
+                    if (hasData) {
+                        fOut.printf("%d;", dayCounter);
+                        for (int i = 0; i < 24; i++) {
+                            fOut.printf("%d%s", buffer[i], (i == 23) ? "" : ";");
+                        }
+                        fOut.println();
+                    }
+                }
+                dayCounter++;
+            }
+            fIn.close();
+            fOut.close();
+        }
+    }
+}
 
 void DayTrackApp::init() {
     loadForCurrentDate();
@@ -33,17 +81,15 @@ uint16_t DayTrackApp::getCatColor(int id) {
         case 3: return CAT_PROJ;         case 4: return CAT_PROD;
         case 5: return CAT_FAM;          case 6: return CAT_FRIEND;
         case 7: return CAT_CALISTHENICS; 
-        case 8: // Fallback dla usuniętego RUN
+        case 8: 
         case 9: return CAT_SPORT;   
         case 10: return CAT_ROUT;        case 11: return CAT_CHORES;
         case 12: return CAT_READ;        case 13: return CAT_RELAX;
         case 14: return CAT_GAMES;
         case 15: 
-        case 16: // Fallback dla usuniętego SCROLL
-            return CAT_WASTE;  
+        case 16: return CAT_WASTE;  
         case 17: 
-        case 18: // Fallback dla usuniętego NAP
-            return CAT_SLEEP;
+        case 18: return CAT_SLEEP;
         case 19: return CAT_TRANSIT;
         default: return CAT_EMPTY;
     }
@@ -55,17 +101,15 @@ const char* DayTrackApp::getCatName(int id) {
         case 3: return "PROJECT";        case 4: return "PRODUCTIVE";
         case 5: return "FAMILY";         case 6: return "FRIENDS";
         case 7: return "CALISTHENICS";   
-        case 8: // Fallback
+        case 8: 
         case 9: return "SPORT";     
         case 10: return "ROUTINE";       case 11: return "CHORES";
         case 12: return "READ";          case 13: return "RELAX";    
         case 14: return "GAMES";
         case 15: 
-        case 16: // Fallback
-            return "WASTE";    
+        case 16: return "WASTE";    
         case 17: 
-        case 18: // Fallback
-            return "SLEEP";    
+        case 18: return "SLEEP";    
         case 19: return "TRANSIT";
         default: return "EMPTY";
     }
@@ -92,44 +136,65 @@ void DayTrackApp::changeDate(int delta) {
 void DayTrackApp::loadForCurrentDate() {
     for(int i = 0; i < 24; i++) daySchedule[i] = 0;
     for(int i = 0; i <= 6; i++) daySchedule[i] = 17;
+    daySchedule[22] = 17; // Dodana godzina 22:00
     daySchedule[23] = 17;
+    isDirty = false;
 
     char path[64];
-    snprintf(path, sizeof(path), DATA_PATH "/day_%04d%02d%02d.csv", globalYear, globalMonth, globalDay);
-    if (!SD.exists(path)) return;
+    snprintf(path, sizeof(path), DATA_PATH "/track_%04d.bin", globalYear);
     
-    File f = SD.open(path, FILE_READ);
-    if (!f) return;
-
-    bool isFirstLine = true;
-    while (f.available()) {
-        String line = f.readStringUntil('\n');
-        line.trim();
-        if (line.length() == 0) continue;
-
-        if (isFirstLine) { isFirstLine = false; continue; }
-
-        int semiIndex = line.indexOf(';');
-        if (semiIndex != -1) {
-            int h = line.substring(0, semiIndex).toInt();
-            int cat = line.substring(semiIndex + 1).toInt();
-            if (h >= 0 && h < 24) daySchedule[h] = cat;
+    if (SD.exists(path)) {
+        File f = SD.open(path, FILE_READ);
+        if (f) {
+            uint32_t offset = (getDayOfYear(globalDay, globalMonth, globalYear) - 1) * 24;
+            f.seek(offset);
+            uint8_t buffer[24];
+            int bytesRead = f.read(buffer, 24);
+            if (bytesRead == 24) {
+                for (int i = 0; i < 24; i++) {
+                    daySchedule[i] = buffer[i];
+                }
+            }
+            f.close();
         }
     }
-    f.close();
 }
-
 void DayTrackApp::saveForCurrentDate() {
     char path[64];
-    snprintf(path, sizeof(path), DATA_PATH "/day_%04d%02d%02d.csv", globalYear, globalMonth, globalDay);
-    File f = SD.open(path, FILE_WRITE);
-    if (f) {
-        f.println("Hour;CategoryID");
-        for (int i = 0; i < 24; i++) {
-            f.printf("%d;%d\n", i, daySchedule[i]);
+    snprintf(path, sizeof(path), DATA_PATH "/track_%04d.bin", globalYear);
+    
+    File f;
+    if (!SD.exists(path)) {
+        f = SD.open(path, FILE_WRITE);
+        if (f) {
+            // Zamiast zer, przygotowujemy domyślny dzień ze snem od 22:00 do 6:00
+            uint8_t defaultDay[24] = {0};
+            for(int i = 0; i <= 6; i++) defaultDay[i] = 17;
+            defaultDay[22] = 17;
+            defaultDay[23] = 17;
+
+            // Wypełniamy cały rok tym szablonem
+            for (int i = 0; i < 366; i++) {
+                f.write(defaultDay, 24);
+            }
+            f.close();
         }
-        f.close();
     }
+    
+    f = SD.open(path, "r+");
+    if (!f) return;
+
+    uint32_t offset = (getDayOfYear(globalDay, globalMonth, globalYear) - 1) * 24;
+    f.seek(offset);
+    
+    uint8_t buffer[24];
+    for (int i = 0; i < 24; i++) {
+        buffer[i] = (uint8_t)daySchedule[i];
+    }
+    
+    f.write(buffer, 24);
+    f.close();
+    isDirty = false;
 }
 
 void DayTrackApp::update() {
@@ -142,7 +207,7 @@ void DayTrackApp::update() {
         return;
     }
 
-    bool changed = false;
+    bool stateChanged = false;
 
     if (M5Cardputer.Keyboard.isKeyPressed(';')) { 
         if (globalHour < 23) {
@@ -156,54 +221,73 @@ void DayTrackApp::update() {
         }
     } 
     else if (M5Cardputer.Keyboard.isKeyPressed('[')) {
+        if (isDirty) saveForCurrentDate();
         changeDate(-1);
     } else if (M5Cardputer.Keyboard.isKeyPressed(']')) {
+        if (isDirty) saveForCurrentDate();
         changeDate(1);
     }
     else if (M5Cardputer.Keyboard.isKeyPressed('1')) {
         int c = daySchedule[globalHour];
         daySchedule[globalHour] = (c == 1) ? 2 : 1;
-        changed = true;
+        stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('2')) {
         int c = daySchedule[globalHour];
         daySchedule[globalHour] = (c == 3) ? 4 : 3;
-        changed = true;
+        stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('3')) {
         int c = daySchedule[globalHour];
         daySchedule[globalHour] = (c == 5) ? 6 : 5;
-        changed = true;
+        stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('4')) {
         int c = daySchedule[globalHour];
         daySchedule[globalHour] = (c == 7) ? 9 : 7;
-        changed = true;
+        stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('5')) {
         int c = daySchedule[globalHour];
         daySchedule[globalHour] = (c == 10) ? 11 : 10;
-        changed = true;
+        stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('6')) {
         int c = daySchedule[globalHour];
         if (c == 12) daySchedule[globalHour] = 13;
         else if (c == 13) daySchedule[globalHour] = 14;
         else daySchedule[globalHour] = 12;
-        changed = true;
+        stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('7')) {
         int c = daySchedule[globalHour];
         daySchedule[globalHour] = (c == 15) ? 19 : 15;
-        changed = true;
+        stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('8')) {
         int c = daySchedule[globalHour];
         daySchedule[globalHour] = (c == 17) ? 0 : 17;
-        changed = true;
+        stateChanged = true;
     } 
     else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
         daySchedule[globalHour] = 0;
-        changed = true;
+        stateChanged = true;
     }
     else if (M5Cardputer.Keyboard.isKeyPressed('l')) {
         showLegend = true;
     }
+    else if (M5Cardputer.Keyboard.isKeyPressed('e')) {
+        exportToCSV();
+        
+        canvas.fillScreen(COL_BG);
+        canvas.setTextDatum(middle_center);
+        canvas.setTextColor(COL_ACCENT);
+        canvas.setTextSize(2);
+        canvas.drawString("EXPORTED TO CSV", 120, 60);
+        canvas.pushSprite(0, 0);
+        delay(1000);
+        canvas.setTextDatum(top_left);
+    }
 
-    if (changed) {
+    if (stateChanged) {
+        isDirty = true;
+        lastEditTime = millis();
+    }
+
+    if (isDirty && millis() - lastEditTime > 2000) {
         saveForCurrentDate();
     }
 }
@@ -313,6 +397,9 @@ void DayTrackApp::drawLegendScreen() {
     canvas.drawString("7: WASTE/TRANSIT", 10, y);
     canvas.drawString("8: SLEEP/CLEAR", 120, y); y += 14;
 
+    canvas.setTextColor(COL_P4);
+    canvas.drawCenterString("Press 'e' to export year to CSV", 120, y + 5);
+
     canvas.setTextColor(COL_ACCENT);
-    canvas.drawCenterString("[ Press L to return ]", 120, 120);
+    canvas.drawCenterString("[ Press L to return ]", 120, 126);
 }

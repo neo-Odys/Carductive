@@ -11,7 +11,8 @@ public:
     void draw();
 
 private:
-    int daySchedule[24];
+    uint8_t daySchedule[24];
+    bool isDirty = false;
     bool showLegend = false;
     
     uint16_t getCatColor(int id);
