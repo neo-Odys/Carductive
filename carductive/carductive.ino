@@ -87,28 +87,29 @@ void handleDraw() {
 
 void playIntro() {
   canvas.setTextDatum(middle_center);
-  canvas.setTextSize(2);
-  const char* title = "CARDUCTIVE";
-  int len = strlen(title);
-  for (int i = 1; i <= len; i++) {
+  canvas.setTextColor(COL_ACCENT);
+
+  for (float s = 10.0; s >= 2.0; s -= 1.5) {
     canvas.fillScreen(COL_BG);
-    char part[32];
-    strncpy(part, title, i);
-    part[i] = '\0';
-
-    canvas.setTextColor(COL_ACCENT);
-    canvas.drawString(part, 120, 60);
-    if (i < len) {
-      int w = canvas.textWidth(part);
-      canvas.fillRect(120 + (w / 2) + 2, 50, 2, 20, COL_TEXT_NORM);
-    }
-
+    canvas.setTextSize(s);
+    canvas.drawString("CARDUCTIVE", 120, 60);
     canvas.pushSprite(0, 0);
-    delay(50);
   }
 
-  delay(600);
-  canvas.setTextDatum(top_left);
+  canvas.setTextSize(2);
+  for (int i = 0; i < 6; i++) {
+    canvas.fillScreen(COL_BG);
+    canvas.drawString("CARDUCTIVE", 120 + random(-4, 5), 60 + random(-4, 5));
+    canvas.pushSprite(0, 0);
+    delay(20);
+  }
+
+  canvas.fillScreen(COL_BG);
+  canvas.drawString("CARDUCTIVE", 120, 60);
+  canvas.pushSprite(0, 0);
+
+  delay(700); 
+  canvas.setTextDatum(top_left); 
 }
 
 void setup() {

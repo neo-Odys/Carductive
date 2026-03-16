@@ -95,9 +95,9 @@ void TodoApp::update() {
         pomodoroApp.setTask(todoList[selectedIndex].text);
         currentMode = APP_POMODORO;
     }
-  } else if (M5Cardputer.Keyboard.isKeyPressed('q'))
+  } else if (M5Cardputer.Keyboard.isKeyPressed('w'))
     adjustVal(todoList[selectedIndex].priority, -1, 1, 4);
-  else if (M5Cardputer.Keyboard.isKeyPressed('w'))
+  else if (M5Cardputer.Keyboard.isKeyPressed('q'))
     adjustVal(todoList[selectedIndex].priority, 1, 1, 4);
   else if (M5Cardputer.Keyboard.isKeyPressed('['))
     adjustVal(todoList[selectedIndex].urgency, -1, 0, 3);
