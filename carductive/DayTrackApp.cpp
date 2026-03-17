@@ -5,22 +5,27 @@
 
 extern M5Canvas canvas;
 
-#define CAT_UNI          0x6596
-#define CAT_STUDY        0x5bba
-#define CAT_PROJ         0x766f
-#define CAT_PROD         0x6673
-#define CAT_FAM          0xd34f
-#define CAT_FRIEND       0xe70b
-#define CAT_CALISTHENICS 0xb3da
-#define CAT_SPORT        0xFCEB
-#define CAT_ROUT         0xb538
-#define CAT_CHORES       0xbc79
-#define CAT_READ         0x8dbc
-#define CAT_RELAX        0xdc99
-#define CAT_GAMES        0x6e7c
-#define CAT_WASTE        0xf800
-#define CAT_TRANSIT      0xBC2D
-#define CAT_SLEEP        0x9CD3
+#define CAT_UNI          0x64BD
+#define CAT_STUDY        0x4416
+#define CAT_PROD         0x3666
+#define CAT_WORK         0x3D8E
+#define CAT_FAM          0xFC60
+#define CAT_FRIENDS      0xF52C
+#define CAT_CALIS        0x939B
+#define CAT_RUNNING      0x895C
+#define CAT_SPORT        0xBABA
+#define CAT_ROUTINE      0xA4B0
+#define CAT_CHORES       0x6B2B
+#define CAT_TRANSIT      0x8A22
+#define CAT_READ         0x05FF
+#define CAT_GAMES        0x2595
+#define CAT_VACATION     0xFEA0
+#define CAT_WASTE        0xD8A7
+#define CAT_PROJ         0xF8B2
+#define CAT_EMBEDDED     0xB18F
+#define CAT_BUSINESS     0xCAEB
+#define CAT_SLEEP        0x8410
+
 #define CAT_EMPTY        0x0000
 
 static bool isDirty = false;
@@ -77,40 +82,30 @@ void DayTrackApp::init() {
 
 uint16_t DayTrackApp::getCatColor(int id) {
     switch(id) {
-        case 1: return CAT_UNI;          case 2: return CAT_STUDY;
-        case 3: return CAT_PROJ;         case 4: return CAT_PROD;
-        case 5: return CAT_FAM;          case 6: return CAT_FRIEND;
-        case 7: return CAT_CALISTHENICS; 
-        case 8: 
-        case 9: return CAT_SPORT;   
-        case 10: return CAT_ROUT;        case 11: return CAT_CHORES;
-        case 12: return CAT_READ;        case 13: return CAT_RELAX;
-        case 14: return CAT_GAMES;
-        case 15: 
-        case 16: return CAT_WASTE;  
-        case 17: 
-        case 18: return CAT_SLEEP;
-        case 19: return CAT_TRANSIT;
+        case 1: return CAT_UNI;         case 2: return CAT_STUDY;
+        case 3: return CAT_PROD;        case 4: return CAT_WORK;
+        case 5: return CAT_FAM;         case 6: return CAT_FRIENDS;
+        case 7: return CAT_CALIS;       case 8: return CAT_RUNNING;   case 9: return CAT_SPORT;
+        case 10: return CAT_ROUTINE;    case 11: return CAT_CHORES;   case 12: return CAT_TRANSIT;
+        case 13: return CAT_READ;       case 14: return CAT_GAMES;    case 15: return CAT_VACATION;
+        case 16: return CAT_WASTE;
+        case 17: return CAT_PROJ;       case 18: return CAT_EMBEDDED; case 19: return CAT_BUSINESS;
+        case 20: return CAT_SLEEP;
         default: return CAT_EMPTY;
     }
 }
 
 const char* DayTrackApp::getCatName(int id) {
     switch(id) {
-        case 1: return "UNI";            case 2: return "STUDY";
-        case 3: return "PROJECT";        case 4: return "PRODUCTIVE";
-        case 5: return "FAMILY";         case 6: return "FRIENDS";
-        case 7: return "CALISTHENICS";   
-        case 8: 
-        case 9: return "SPORT";     
-        case 10: return "ROUTINE";       case 11: return "CHORES";
-        case 12: return "READ";          case 13: return "RELAX";    
-        case 14: return "GAMES";
-        case 15: 
-        case 16: return "WASTE";    
-        case 17: 
-        case 18: return "SLEEP";    
-        case 19: return "TRANSIT";
+        case 1: return "UNIVERSITY";    case 2: return "STUDY";
+        case 3: return "PRODUCTIVE";    case 4: return "WORK";
+        case 5: return "FAMILY";        case 6: return "FRIENDS";
+        case 7: return "CALISTHENICS";  case 8: return "RUNNING";     case 9: return "SPORT";
+        case 10: return "ROUTINE";      case 11: return "CHORES";     case 12: return "TRANSIT";
+        case 13: return "READ";         case 14: return "GAMES";      case 15: return "VACATION";
+        case 16: return "WASTE";
+        case 17: return "PROJECTS";     case 18: return "EMBEDDED";   case 19: return "BUSINESS";
+        case 20: return "SLEEP";
         default: return "EMPTY";
     }
 }
@@ -135,9 +130,10 @@ void DayTrackApp::changeDate(int delta) {
 
 void DayTrackApp::loadForCurrentDate() {
     for(int i = 0; i < 24; i++) daySchedule[i] = 0;
-    for(int i = 0; i <= 6; i++) daySchedule[i] = 17;
-    daySchedule[22] = 17; // Dodana godzina 22:00
-    daySchedule[23] = 17;
+    
+    for(int i = 0; i <= 6; i++) daySchedule[i] = 20;
+    daySchedule[22] = 20; 
+    daySchedule[23] = 20;
     isDirty = false;
 
     char path[64];
@@ -167,13 +163,12 @@ void DayTrackApp::saveForCurrentDate() {
     if (!SD.exists(path)) {
         f = SD.open(path, FILE_WRITE);
         if (f) {
-            // Zamiast zer, przygotowujemy domyślny dzień ze snem od 22:00 do 6:00
             uint8_t defaultDay[24] = {0};
-            for(int i = 0; i <= 6; i++) defaultDay[i] = 17;
-            defaultDay[22] = 17;
-            defaultDay[23] = 17;
+            
+            for(int i = 0; i <= 6; i++) defaultDay[i] = 20; 
+            defaultDay[22] = 20;
+            defaultDay[23] = 20;
 
-            // Wypełniamy cały rok tym szablonem
             for (int i = 0; i < 366; i++) {
                 f.write(defaultDay, 24);
             }
@@ -241,27 +236,35 @@ void DayTrackApp::update() {
         stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('4')) {
         int c = daySchedule[globalHour];
-        daySchedule[globalHour] = (c == 7) ? 9 : 7;
+        if (c == 7) daySchedule[globalHour] = 8;
+        else if (c == 8) daySchedule[globalHour] = 9;
+        else daySchedule[globalHour] = 7;
         stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('5')) {
         int c = daySchedule[globalHour];
-        daySchedule[globalHour] = (c == 10) ? 11 : 10;
+        if (c == 10) daySchedule[globalHour] = 11;
+        else if (c == 11) daySchedule[globalHour] = 12;
+        else daySchedule[globalHour] = 10;
         stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('6')) {
         int c = daySchedule[globalHour];
-        if (c == 12) daySchedule[globalHour] = 13;
-        else if (c == 13) daySchedule[globalHour] = 14;
-        else daySchedule[globalHour] = 12;
+        if (c == 13) daySchedule[globalHour] = 14;
+        else if (c == 14) daySchedule[globalHour] = 15;
+        else daySchedule[globalHour] = 13;
         stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('7')) {
-        int c = daySchedule[globalHour];
-        daySchedule[globalHour] = (c == 15) ? 19 : 15;
+        daySchedule[globalHour] = 16;
         stateChanged = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('8')) {
         int c = daySchedule[globalHour];
-        daySchedule[globalHour] = (c == 17) ? 0 : 17;
+        if (c == 17) daySchedule[globalHour] = 18;
+        else if (c == 18) daySchedule[globalHour] = 19;
+        else daySchedule[globalHour] = 17;
         stateChanged = true;
-    } 
+    } else if (M5Cardputer.Keyboard.isKeyPressed('9')) {
+        daySchedule[globalHour] = 20;
+        stateChanged = true;
+    }
     else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
         daySchedule[globalHour] = 0;
         stateChanged = true;
@@ -361,6 +364,33 @@ void DayTrackApp::drawTimeline() {
     canvas.setTextSize(2);
     canvas.setTextColor(currentCat == 0 ? COL_P4 : getCatColor(currentCat));
     canvas.drawCenterString(getCatName(currentCat), 120, 105);
+
+    // --- NOWY KOD: Liczniki STUDY i EMBEDDED ---
+    int studyCount = 0;
+    int embedCount = 0;
+    for (int i = 0; i < 24; i++) {
+        if (daySchedule[i] == 2) studyCount++;    // ID 2 to STUDY
+        if (daySchedule[i] == 18) embedCount++;   // ID 18 to EMBEDDED
+    }
+
+    canvas.setTextSize(1);
+    
+    // Lewy dolny róg: STUDY
+    canvas.setTextDatum(bottom_left);
+    canvas.setTextColor(CAT_STUDY); 
+    char studyStr[16];
+    snprintf(studyStr, sizeof(studyStr), "%d/3 STUDY", studyCount);
+    canvas.drawString(studyStr, 5, 130);
+
+    // Prawy dolny róg: EMBEDDED
+    canvas.setTextDatum(bottom_right);
+    canvas.setTextColor(CAT_EMBEDDED);
+    char embedStr[16];
+    snprintf(embedStr, sizeof(embedStr), "%d/2 EMBED", embedCount);
+    canvas.drawString(embedStr, 235, 130);
+
+    // Przywrócenie domyślnego punktu odniesienia rysowania
+    canvas.setTextDatum(top_left);
 }
 
 void DayTrackApp::drawLegendScreen() {
@@ -376,29 +406,29 @@ void DayTrackApp::drawLegendScreen() {
     int y = 25;
     canvas.setTextSize(1.0);
     
-    canvas.setTextColor(COL_P4); canvas.drawString("MOVE TIME:", 10, y);
+    canvas.setTextColor(COL_P4); canvas.drawString("MOVE TIME:", 5, y);
     canvas.setTextColor(WHITE);  canvas.drawString("; / .", 85, y);
     
     canvas.setTextColor(COL_P4); canvas.drawString("DATE - / +:", 135, y);
     canvas.setTextColor(WHITE);  canvas.drawString("[ / ]", 200, y);
-    y += 12;
+    y += 14;
 
-    canvas.setTextColor(COL_P4); canvas.drawString("CLEAR:", 10, y);
-    canvas.setTextColor(WHITE);  canvas.drawString("Backspace", 85, y);
-    y += 18;
+    canvas.setTextColor(COL_P4); canvas.drawString("EXPORT:", 5, y);
+    canvas.setTextColor(WHITE);  canvas.drawString("e", 85, y);
+    canvas.setTextColor(COL_P4); canvas.drawString("CLEAR:", 135, y);
+    canvas.setTextColor(WHITE);  canvas.drawString("Backspace", 185, y);
+    y += 16;
 
     canvas.setTextColor(WHITE);
-    canvas.drawString("1: UNI/STUDY", 10, y);     
-    canvas.drawString("2: PROJ/PROD", 120, y); y += 14;
-    canvas.drawString("3: FAM/FRIEND", 10, y); 
-    canvas.drawString("4: CALIS/SPORT", 120, y); y += 14;
-    canvas.drawString("5: ROUT/CHORE", 10, y); 
-    canvas.drawString("6: READ/RLX/GAME", 120, y); y += 14;
-    canvas.drawString("7: WASTE/TRANSIT", 10, y);
-    canvas.drawString("8: SLEEP/CLEAR", 120, y); y += 14;
-
-    canvas.setTextColor(COL_P4);
-    canvas.drawCenterString("Press 'e' to export year to CSV", 120, y + 5);
+    canvas.drawString("1(Blu): UNI/STDY", 5, y);     
+    canvas.drawString("2(Grn): PROD/WRK", 125, y); y += 12;
+    canvas.drawString("3(Orn): FAM/FRND", 5, y); 
+    canvas.drawString("4(Pur): CAL/RUN/SPT", 125, y); y += 12;
+    canvas.drawString("5(Brn): ROU/CHO/TRN", 5, y); 
+    canvas.drawString("6(Cyn): READ/GAM/VAC", 125, y); y += 12;
+    canvas.drawString("7(Red): WASTE", 5, y);
+    canvas.drawString("8(Pnk): PRJ/EMB/BUS", 125, y); y += 12;
+    canvas.drawString("9(Gry): SLEEP", 5, y);
 
     canvas.setTextColor(COL_ACCENT);
     canvas.drawCenterString("[ Press L to return ]", 120, 126);
