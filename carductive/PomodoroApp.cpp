@@ -1,322 +1,330 @@
 #include "PomodoroApp.h"
-#include "Global.h"
+
 #include <M5GFX.h>
 #include <SD.h>
+
+#include "Global.h"
 
 extern M5Canvas canvas;
 extern bool needsRedraw;
 
 PomodoroApp::PomodoroApp() {
-    isRunning = false;
-    isBreak = false;
-    lastTick = 0;
-    workDuration = 25 * 60;
-    breakDuration = 5 * 60;
-    volume = 100;
-    autoStart = false;
-    timeLeft = workDuration;
-    showLegend = false;
-    memset(currentTask, 0, sizeof(currentTask));
+  isRunning = false;
+  isBreak = false;
+  lastTick = 0;
+  workDuration = 25 * 60;
+  breakDuration = 5 * 60;
+  volume = 100;
+  autoStart = false;
+  timeLeft = workDuration;
+  showLegend = false;
+  memset(currentTask, 0, sizeof(currentTask));
 }
 
 void PomodoroApp::init() {
-    loadSettings();
-    timeLeft = workDuration;
-    M5.Speaker.setVolume(volume);
+  loadSettings();
+  timeLeft = workDuration;
+  M5.Speaker.setVolume(volume);
 }
 
 void PomodoroApp::setTask(const char* task) {
-    if (task) {
-        strncpy(currentTask, task, sizeof(currentTask) - 1);
-        currentTask[sizeof(currentTask) - 1] = '\0';
-    } else {
-        memset(currentTask, 0, sizeof(currentTask));
-    }
+  if (task) {
+    strncpy(currentTask, task, sizeof(currentTask) - 1);
+    currentTask[sizeof(currentTask) - 1] = '\0';
+  } else {
+    memset(currentTask, 0, sizeof(currentTask));
+  }
 }
 
-bool PomodoroApp::isActive() {
-    return isRunning;
-}
+bool PomodoroApp::isActive() { return isRunning; }
 
 void PomodoroApp::loadSettings() {
-    if (SD.exists(DATA_PATH "/pomo.bin")) {
-        File f = SD.open(DATA_PATH "/pomo.bin", FILE_READ);
-        if (f) {
-            PomoConfig cfg;
-            if (f.read((uint8_t*)&cfg, sizeof(PomoConfig)) == sizeof(PomoConfig)) {
-                workDuration = cfg.workTime;
-                breakDuration = cfg.breakTime;
-                volume = cfg.volume;
-                autoStart = cfg.autoStart;
-            }
-            f.close();
-        }
+  if (SD.exists(DATA_PATH "/pomo.bin")) {
+    File f = SD.open(DATA_PATH "/pomo.bin", FILE_READ);
+    if (f) {
+      PomoConfig cfg;
+      if (f.read((uint8_t*)&cfg, sizeof(PomoConfig)) == sizeof(PomoConfig)) {
+        workDuration = cfg.workTime;
+        breakDuration = cfg.breakTime;
+        volume = cfg.volume;
+        autoStart = cfg.autoStart;
+      }
+      f.close();
     }
+  }
 }
 
 void PomodoroApp::saveSettings() {
-    PomoConfig cfg;
-    cfg.workTime = workDuration;
-    cfg.breakTime = breakDuration;
-    cfg.volume = volume;
-    cfg.autoStart = autoStart;
+  PomoConfig cfg;
+  cfg.workTime = workDuration;
+  cfg.breakTime = breakDuration;
+  cfg.volume = volume;
+  cfg.autoStart = autoStart;
 
-    File f = SD.open(DATA_PATH "/pomo.bin", FILE_WRITE);
-    if (f) {
-        f.write((uint8_t*)&cfg, sizeof(PomoConfig));
-        f.close();
-    }
+  File f = SD.open(DATA_PATH "/pomo.bin", FILE_WRITE);
+  if (f) {
+    f.write((uint8_t*)&cfg, sizeof(PomoConfig));
+    f.close();
+  }
 }
 
 void PomodoroApp::update() {
-    static unsigned long lastKeyTime = 0;
-    bool keyProcessed = false;
+  static unsigned long lastKeyTime = 0;
+  bool keyProcessed = false;
 
-    if (millis() - lastKeyTime > 200) {
-        if (showLegend) {
-            if (M5Cardputer.Keyboard.isKeyPressed(KEY_ESC) || 
-                M5Cardputer.Keyboard.isKeyPressed('`') ||
-                M5Cardputer.Keyboard.isKeyPressed('l')) {
-                showLegend = false;
-                keyProcessed = true;
-            }
-        } else {
-            if (M5Cardputer.Keyboard.isKeyPressed('l')) {
-                showLegend = true;
-                keyProcessed = true;
-            } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
-                isRunning = !isRunning;
-                M5.Speaker.tone(1000, 100);
-                lastTick = millis(); 
-                keyProcessed = true;
-            } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
-                isRunning = false;
-                timeLeft = isBreak ? breakDuration : workDuration;
-                M5.Speaker.tone(800, 50);
-                keyProcessed = true;
-            } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_TAB) || M5Cardputer.Keyboard.isKeyPressed(' ')) {
-                isBreak = !isBreak;
-                isRunning = false;
-                timeLeft = isBreak ? breakDuration : workDuration;
-                M5.Speaker.tone(1500, 50);
-                keyProcessed = true;
-            } else if (M5Cardputer.Keyboard.isKeyPressed('a')) {
-                autoStart = !autoStart;
-                saveSettings();
-                M5.Speaker.tone(autoStart ? 1200 : 800, 50);
-                keyProcessed = true;
-            } else {
-                bool volChanged = false;
-                if (M5Cardputer.Keyboard.isKeyPressed(';')) {
-                    volume += 25;
-                    if (volume > 255) volume = 255;
-                    volChanged = true;
-                    M5.Speaker.tone(1200, 20);
-                    keyProcessed = true;
-                } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
-                    volume -= 25;
-                    if (volume < 0) volume = 0;
-                    volChanged = true;
-                    M5.Speaker.tone(800, 20);
-                    keyProcessed = true;
-                }
-
-                if (volChanged) {
-                    M5.Speaker.setVolume(volume);
-                    saveSettings();
-                }
-
-                int timeStep = 5 * 60;
-                bool timeChanged = false;
-
-                if (M5Cardputer.Keyboard.isKeyPressed('[')) {
-                    timeLeft -= timeStep;
-                    if (timeLeft < 0) timeLeft = 0;
-                    if (isBreak) {
-                        breakDuration -= timeStep;
-                        if (breakDuration < 0) breakDuration = 0;
-                    } else {
-                        workDuration -= timeStep;
-                        if (workDuration < 0) workDuration = 0;
-                    }
-                    timeChanged = true;
-                    M5.Speaker.tone(600, 50);
-                    keyProcessed = true;
-                } else if (M5Cardputer.Keyboard.isKeyPressed(']')) {
-                    timeLeft += timeStep;
-                    if (isBreak) breakDuration += timeStep;
-                    else workDuration += timeStep;
-                    timeChanged = true;
-                    M5.Speaker.tone(1400, 50);
-                    keyProcessed = true;
-                }
-
-                if (timeChanged) {
-                    saveSettings();
-                }
-            }
+  if (millis() - lastKeyTime > 200) {
+    if (showLegend) {
+      if (M5Cardputer.Keyboard.isKeyPressed(KEY_ESC) ||
+          M5Cardputer.Keyboard.isKeyPressed('`') ||
+          M5Cardputer.Keyboard.isKeyPressed('l')) {
+        showLegend = false;
+        keyProcessed = true;
+      }
+    } else {
+      if (M5Cardputer.Keyboard.isKeyPressed('l')) {
+        showLegend = true;
+        keyProcessed = true;
+      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+        isRunning = !isRunning;
+        M5.Speaker.tone(1000, 100);
+        lastTick = millis();
+        keyProcessed = true;
+      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+        isRunning = false;
+        timeLeft = isBreak ? breakDuration : workDuration;
+        M5.Speaker.tone(800, 50);
+        keyProcessed = true;
+      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_TAB) ||
+                 M5Cardputer.Keyboard.isKeyPressed(' ')) {
+        isBreak = !isBreak;
+        isRunning = false;
+        timeLeft = isBreak ? breakDuration : workDuration;
+        M5.Speaker.tone(1500, 50);
+        keyProcessed = true;
+      } else if (M5Cardputer.Keyboard.isKeyPressed('a')) {
+        autoStart = !autoStart;
+        saveSettings();
+        M5.Speaker.tone(autoStart ? 1200 : 800, 50);
+        keyProcessed = true;
+      } else {
+        bool volChanged = false;
+        if (M5Cardputer.Keyboard.isKeyPressed(';')) {
+          volume += 25;
+          if (volume > 255) volume = 255;
+          volChanged = true;
+          M5.Speaker.tone(1200, 20);
+          keyProcessed = true;
+        } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
+          volume -= 25;
+          if (volume < 0) volume = 0;
+          volChanged = true;
+          M5.Speaker.tone(800, 20);
+          keyProcessed = true;
         }
-        
-        if (keyProcessed) {
-            lastKeyTime = millis();
+
+        if (volChanged) {
+          M5.Speaker.setVolume(volume);
+          saveSettings();
         }
+
+        int timeStep = 5 * 60;
+        bool timeChanged = false;
+
+        if (M5Cardputer.Keyboard.isKeyPressed('[')) {
+          timeLeft -= timeStep;
+          if (timeLeft < 0) timeLeft = 0;
+          if (isBreak) {
+            breakDuration -= timeStep;
+            if (breakDuration < 0) breakDuration = 0;
+          } else {
+            workDuration -= timeStep;
+            if (workDuration < 0) workDuration = 0;
+          }
+          timeChanged = true;
+          M5.Speaker.tone(600, 50);
+          keyProcessed = true;
+        } else if (M5Cardputer.Keyboard.isKeyPressed(']')) {
+          timeLeft += timeStep;
+          if (isBreak)
+            breakDuration += timeStep;
+          else
+            workDuration += timeStep;
+          timeChanged = true;
+          M5.Speaker.tone(1400, 50);
+          keyProcessed = true;
+        }
+
+        if (timeChanged) {
+          saveSettings();
+        }
+      }
     }
 
-    if (isRunning && timeLeft > 0) {
-        if (millis() - lastTick >= 1000) {
-            timeLeft--;
-            lastTick = millis();
-            needsRedraw = true; 
-            
-            if (timeLeft <= 0) {
-                M5.Speaker.tone(2000, 200);
-                delay(300);
-                M5.Speaker.tone(2000, 400);
-                
-                isBreak = !isBreak;
-                timeLeft = isBreak ? breakDuration : workDuration;
-                isRunning = autoStart; 
-            }
-        }
+    if (keyProcessed) {
+      lastKeyTime = millis();
     }
+  }
+
+  if (isRunning && timeLeft > 0) {
+    if (millis() - lastTick >= 1000) {
+      timeLeft--;
+      lastTick = millis();
+      needsRedraw = true;
+
+      if (timeLeft <= 0) {
+        M5.Speaker.tone(2000, 200);
+        delay(300);
+        M5.Speaker.tone(2000, 400);
+
+        isBreak = !isBreak;
+        timeLeft = isBreak ? breakDuration : workDuration;
+        isRunning = autoStart;
+      }
+    }
+  }
 }
 
 void PomodoroApp::draw() {
-    if (showLegend) {
-        drawLegendScreen();
-        return;
-    }
+  if (showLegend) {
+    drawLegendScreen();
+    return;
+  }
 
-    canvas.fillRect(0, 0, 240, 20, COL_HEADER_BG);
-    
-    canvas.setTextSize(1.5);
-    canvas.setCursor(5, 5);
-    canvas.setTextColor(COL_TEXT_NORM);
-    canvas.print("POMODORO ");
-    
-    if (isBreak) {
-        canvas.setTextColor(COL_P3);
-        canvas.print("[BREAK]");
-    } else {
-        canvas.setTextColor(COL_ACCENT);
-        canvas.print("[WORK]");
-    }
+  canvas.fillRect(0, 0, 240, 20, COL_HEADER_BG);
 
-    int minutes = timeLeft / 60;
-    int seconds = timeLeft % 60;
-    char timeStr[10];
-    sprintf(timeStr, "%02d:%02d", minutes, seconds);
+  canvas.setTextSize(1.5);
+  canvas.setCursor(5, 5);
+  canvas.setTextColor(COL_TEXT_NORM);
+  canvas.print("POMODORO ");
 
-    canvas.setTextSize(5);
-    if (isBreak) {
-        if (isRunning) canvas.setTextColor(COL_P3);
-        else canvas.setTextColor(WHITE);
-    } else {
-        if (isRunning) canvas.setTextColor(TFT_GREEN);
-        else canvas.setTextColor(COL_TEXT_NORM);
-    }
-    
-    canvas.drawCenterString(timeStr, 110, 35);
+  if (isBreak) {
+    canvas.setTextColor(COL_P3);
+    canvas.print("[BREAK]");
+  } else {
+    canvas.setTextColor(COL_ACCENT);
+    canvas.print("[WORK]");
+  }
 
-    if (currentTask[0] != '\0') {
-        canvas.setTextSize(2);
-        canvas.setTextColor(COL_ACCENT);
-        canvas.drawCenterString(currentTask, 110, 80);
-    }
+  int minutes = timeLeft / 60;
+  int seconds = timeLeft % 60;
+  char timeStr[10];
+  sprintf(timeStr, "%02d:%02d", minutes, seconds);
 
-    canvas.setTextSize(1.5);
-    canvas.setTextColor(WHITE);
-    int statusY = 105;
-    
-    if (!isRunning) {
-        canvas.drawCenterString("paused", 110, statusY);
-    } else if (isBreak) {
-        canvas.drawCenterString("chill", 110, statusY);
-    } else {
-        canvas.drawCenterString("stay focused", 110, statusY);
-    }
+  canvas.setTextSize(5);
+  if (isBreak) {
+    if (isRunning)
+      canvas.setTextColor(COL_P3);
+    else
+      canvas.setTextColor(WHITE);
+  } else {
+    if (isRunning)
+      canvas.setTextColor(TFT_GREEN);
+    else
+      canvas.setTextColor(COL_TEXT_NORM);
+  }
 
-    canvas.setTextSize(1);
-    canvas.setCursor(5, 122);
-    canvas.setTextColor(WHITE);
-    if (autoStart) {
-        canvas.print("AUTO: ON [A]");
-    } else {
-        canvas.print("AUTO: OFF [A]");
-    }
+  canvas.drawCenterString(timeStr, 110, 35);
 
-    int barX = 225;
-    int barY = 30;
-    int barW = 8;
-    int barH = 80;
+  if (currentTask[0] != '\0') {
+    canvas.setTextSize(2);
+    canvas.setTextColor(COL_ACCENT);
+    canvas.drawCenterString(currentTask, 110, 80);
+  }
 
-    canvas.drawRect(barX, barY, barW, barH, COL_TEXT_NORM);
-    
-    int volHeight = map(volume, 0, 255, 0, barH - 2);
-    if (volHeight > 0) {
-        canvas.fillRect(barX + 1, barY + barH - 1 - volHeight, barW - 2, volHeight, COL_ACCENT);
-    }
+  canvas.setTextSize(1.5);
+  canvas.setTextColor(WHITE);
+  int statusY = 105;
 
-    canvas.setTextSize(1);
-    canvas.setTextColor(COL_P4);
-    canvas.setTextDatum(top_center);
-    canvas.drawString("VOL", barX + (barW / 2), barY - 9);
-    canvas.setTextDatum(top_left);
+  if (!isRunning) {
+    canvas.drawCenterString("paused", 110, statusY);
+  } else if (isBreak) {
+    canvas.drawCenterString("chill", 110, statusY);
+  } else {
+    canvas.drawCenterString("stay focused", 110, statusY);
+  }
+
+  canvas.setTextSize(1);
+  canvas.setCursor(5, 122);
+  canvas.setTextColor(WHITE);
+  if (autoStart) {
+    canvas.print("AUTO: ON [A]");
+  } else {
+    canvas.print("AUTO: OFF [A]");
+  }
+
+  int barX = 225;
+  int barY = 30;
+  int barW = 8;
+  int barH = 80;
+
+  canvas.drawRect(barX, barY, barW, barH, COL_TEXT_NORM);
+
+  int volHeight = map(volume, 0, 255, 0, barH - 2);
+  if (volHeight > 0) {
+    canvas.fillRect(barX + 1, barY + barH - 1 - volHeight, barW - 2, volHeight,
+                    COL_ACCENT);
+  }
+
+  canvas.setTextSize(1);
+  canvas.setTextColor(COL_P4);
+  canvas.setTextDatum(top_center);
+  canvas.drawString("VOL", barX + (barW / 2), barY - 9);
+  canvas.setTextDatum(top_left);
 }
 
 void PomodoroApp::drawLegendScreen() {
-    canvas.fillScreen(COL_BG);
+  canvas.fillScreen(COL_BG);
 
-    canvas.fillRect(0, 0, 240, 20, COL_HEADER_BG);
-    canvas.setTextDatum(top_left);
+  canvas.fillRect(0, 0, 240, 20, COL_HEADER_BG);
+  canvas.setTextDatum(top_left);
 
-    canvas.setTextSize(1.5);
-    canvas.setCursor(5, 5);
-    canvas.setTextColor(COL_ACCENT);
-    canvas.print("POMODORO [LEGEND]");
+  canvas.setTextSize(1.5);
+  canvas.setCursor(5, 5);
+  canvas.setTextColor(COL_ACCENT);
+  canvas.print("POMODORO [LEGEND]");
 
-    canvas.setTextSize(1.0);
-    int y = 30;
-    int x1 = 10;
-    int x2 = 160;
-    int lh = 14; 
+  canvas.setTextSize(1.0);
+  int y = 30;
+  int x1 = 10;
+  int x2 = 160;
+  int lh = 14;
 
-    canvas.setTextColor(COL_P4);
-    canvas.drawString("START / PAUSE", x1, y);
-    canvas.setTextColor(WHITE);
-    canvas.drawString("Enter", x2, y);
-    y += lh;
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("START / PAUSE", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("Enter", x2, y);
+  y += lh;
 
-    canvas.setTextColor(COL_P4);
-    canvas.drawString("RESET TIMER", x1, y);
-    canvas.setTextColor(WHITE);
-    canvas.drawString("Backspace", x2, y);
-    y += lh;
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("RESET TIMER", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("Backspace", x2, y);
+  y += lh;
 
-    canvas.setTextColor(COL_P4);
-    canvas.drawString("SWITCH MODE", x1, y);
-    canvas.setTextColor(WHITE);
-    canvas.drawString("Tab / Space", x2, y);
-    y += lh;
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("SWITCH MODE", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("Tab / Space", x2, y);
+  y += lh;
 
-    canvas.setTextColor(COL_P4);
-    canvas.drawString("TIME - / + 5min", x1, y);
-    canvas.setTextColor(WHITE);
-    canvas.drawString("[ / ]", x2, y);
-    y += lh;
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("TIME - / + 5min", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("[ / ]", x2, y);
+  y += lh;
 
-    canvas.setTextColor(COL_P4);
-    canvas.drawString("VOLUME - / +", x1, y);
-    canvas.setTextColor(WHITE);
-    canvas.drawString(". / ;", x2, y);
-    y += lh;
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("VOLUME - / +", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString(". / ;", x2, y);
+  y += lh;
 
-    canvas.setTextColor(COL_P4);
-    canvas.drawString("AUTO START", x1, y);
-    canvas.setTextColor(WHITE);
-    canvas.drawString("a", x2, y);
-    y += lh;
+  canvas.setTextColor(COL_P4);
+  canvas.drawString("AUTO START", x1, y);
+  canvas.setTextColor(WHITE);
+  canvas.drawString("a", x2, y);
+  y += lh;
 
-    canvas.setTextColor(COL_ACCENT);
-    canvas.drawCenterString("[ Press L to return ]", 120, 120);
+  canvas.setTextColor(COL_ACCENT);
+  canvas.drawCenterString("[ Press L to return ]", 120, 120);
 }

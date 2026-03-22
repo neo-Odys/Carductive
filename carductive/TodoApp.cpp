@@ -1,16 +1,14 @@
 #include "TodoApp.h"
-#include "PomodoroApp.h"
+
 #include <M5GFX.h>
 #include <SD.h>
-#include <algorithm>
-#include "Global.h"
 
-const char* PRIO_LABELS[4] = {
-    "# ",
-    "$ ",
-    "* ",
-    "| "
-};
+#include <algorithm>
+
+#include "Global.h"
+#include "PomodoroApp.h"
+
+const char* PRIO_LABELS[4] = {"# ", "$ ", "* ", "| "};
 extern M5Canvas canvas;
 extern PomodoroApp pomodoroApp;
 extern AppMode currentMode;
@@ -92,8 +90,8 @@ void TodoApp::update() {
     removeDoneTasks();
   } else if (M5Cardputer.Keyboard.isKeyPressed('p')) {
     if (selectedIndex >= 0 && selectedIndex < (int)todoList.size()) {
-        pomodoroApp.setTask(todoList[selectedIndex].text);
-        currentMode = APP_POMODORO;
+      pomodoroApp.setTask(todoList[selectedIndex].text);
+      currentMode = APP_POMODORO;
     }
   } else if (M5Cardputer.Keyboard.isKeyPressed('w'))
     adjustVal(todoList[selectedIndex].priority, -1, 1, 4);
@@ -141,10 +139,11 @@ void TodoApp::draw() {
   if (selectedIndex >= scrollOffset + visibleItems) {
     scrollOffset = selectedIndex - visibleItems + 1;
   }
-  
-  if (scrollOffset > listSize - visibleItems) scrollOffset = listSize - visibleItems;
+
+  if (scrollOffset > listSize - visibleItems)
+    scrollOffset = listSize - visibleItems;
   if (scrollOffset < 0) scrollOffset = 0;
-  
+
   int viewOffset = scrollOffset;
 
   for (int i = 0; i < visibleItems; i++) {
@@ -181,7 +180,7 @@ void TodoApp::draw() {
 
     char content[64];
     int textLen = strlen(item.text);
-    
+
     if (textLen > maxLen) {
       strncpy(content, item.text, maxLen - 2);
       content[maxLen - 2] = '\0';

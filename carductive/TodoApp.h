@@ -2,6 +2,7 @@
 #define TODOAPP_H
 
 #include <Arduino.h>
+
 #include <vector>
 
 struct TodoItem {
@@ -36,7 +37,7 @@ class TodoApp {
   void deleteTask();
   void toggleDone();
   void removeDoneTasks();
-  
+
   void drawLegendScreen();
   void adjustVal(int& field, int delta, int minV, int maxV);
 };

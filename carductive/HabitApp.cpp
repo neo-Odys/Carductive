@@ -33,7 +33,7 @@ void HabitApp::init() {
     columns[CAT_EVENING].push_back({"journal & plan next day", false});
     columns[CAT_EVENING].push_back({"read book", false});
     columns[CAT_EVENING].push_back({"22:00 in bed", false});
-    
+
     saveMaster();
   } else {
     loadMaster();

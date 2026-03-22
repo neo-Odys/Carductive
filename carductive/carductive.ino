@@ -1,4 +1,3 @@
-// ==================== carductive.ino ====================
 #include <M5Cardputer.h>
 #include <M5GFX.h>
 #include <SD.h>
@@ -28,27 +27,27 @@ int globalYear = 2026;
 int globalHour = 12;
 
 void saveGlobalDate() {
-    File sf = SD.open(DATA_PATH "/shared_date.bin", FILE_WRITE);
-    if (sf) {
-        sf.write((uint8_t*)&globalYear, sizeof(int));
-        sf.write((uint8_t*)&globalMonth, sizeof(int));
-        sf.write((uint8_t*)&globalDay, sizeof(int));
-        sf.write((uint8_t*)&globalHour, sizeof(int));
-        sf.close();
-    }
+  File sf = SD.open(DATA_PATH "/shared_date.bin", FILE_WRITE);
+  if (sf) {
+    sf.write((uint8_t*)&globalYear, sizeof(int));
+    sf.write((uint8_t*)&globalMonth, sizeof(int));
+    sf.write((uint8_t*)&globalDay, sizeof(int));
+    sf.write((uint8_t*)&globalHour, sizeof(int));
+    sf.close();
+  }
 }
 
 void loadGlobalDate() {
-    if (SD.exists(DATA_PATH "/shared_date.bin")) {
-        File sf = SD.open(DATA_PATH "/shared_date.bin", FILE_READ);
-        if (sf) {
-            sf.read((uint8_t*)&globalYear, sizeof(int));
-            sf.read((uint8_t*)&globalMonth, sizeof(int));
-            sf.read((uint8_t*)&globalDay, sizeof(int));
-            sf.read((uint8_t*)&globalHour, sizeof(int));
-            sf.close();
-        }
+  if (SD.exists(DATA_PATH "/shared_date.bin")) {
+    File sf = SD.open(DATA_PATH "/shared_date.bin", FILE_READ);
+    if (sf) {
+      sf.read((uint8_t*)&globalYear, sizeof(int));
+      sf.read((uint8_t*)&globalMonth, sizeof(int));
+      sf.read((uint8_t*)&globalDay, sizeof(int));
+      sf.read((uint8_t*)&globalHour, sizeof(int));
+      sf.close();
     }
+  }
 }
 
 void handleUpdate() {
@@ -108,8 +107,8 @@ void playIntro() {
   canvas.drawString("CARDUCTIVE", 120, 60);
   canvas.pushSprite(0, 0);
 
-  delay(700); 
-  canvas.setTextDatum(top_left); 
+  delay(700);
+  canvas.setTextDatum(top_left);
 }
 
 void setup() {
@@ -120,8 +119,8 @@ void setup() {
   M5Cardputer.Display.setBrightness(BRIGHT_HIGH);
 
   if (canvas.createSprite(240, 135) == nullptr) {
-      M5Cardputer.Display.println("CANVAS ALLOC FAILED!");
-      while(1) delay(100);
+    M5Cardputer.Display.println("CANVAS ALLOC FAILED!");
+    while (1) delay(100);
   }
 
   playIntro();
@@ -140,39 +139,39 @@ void setup() {
     if (!SD.exists(DATA_PATH)) {
       SD.mkdir(DATA_PATH);
     }
-    loadGlobalDate(); 
+    loadGlobalDate();
   }
 
   canvas.setTextDatum(top_left);
-  
+
   todoApp.init();
-  pomodoroApp.init(); 
+  pomodoroApp.init();
   habitApp.init();
   dayTrackApp.init();
-  
+
   lastActivityTime = millis();
   needsRedraw = true;
 }
 
 void loop() {
   M5Cardputer.update();
-  bool isAction = M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed();
+  bool isAction =
+      M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed();
   bool isPomodoro = (currentMode == APP_POMODORO);
 
-if (isAction) {
+  if (isAction) {
     lastActivityTime = millis();
     if (isScreenDimmed) {
-      setCpuFrequencyMhz(240); 
-      
-      
+      setCpuFrequencyMhz(240);
+
       M5Cardputer.Display.setBrightness(BRIGHT_HIGH);
       isScreenDimmed = false;
       needsRedraw = true;
     }
   } else {
     if (!isScreenDimmed && millis() - lastActivityTime > DIM_DELAY_MS) {
-      neopixelWrite(21, 150, 0, 0); 
-      
+      neopixelWrite(21, 150, 0, 0);
+
       M5Cardputer.Display.setBrightness(BRIGHT_DIM);
       isScreenDimmed = true;
     }
@@ -190,15 +189,14 @@ if (isAction) {
         if (!(currentMode == APP_HABIT && habitApp.moveColumnLeft())) {
           currentMode = (AppMode)((currentMode - 1 + APP_COUNT) % APP_COUNT);
           appSwitched = true;
-          if (currentMode == APP_HABIT) habitApp.setColumn(CAT_EVENING); 
+          if (currentMode == APP_HABIT) habitApp.setColumn(CAT_EVENING);
         }
         needsRedraw = true;
-      } 
-      else if (M5Cardputer.Keyboard.isKeyPressed('/')) {
+      } else if (M5Cardputer.Keyboard.isKeyPressed('/')) {
         if (!(currentMode == APP_HABIT && habitApp.moveColumnRight())) {
           currentMode = (AppMode)((currentMode + 1) % APP_COUNT);
           appSwitched = true;
-          if (currentMode == APP_HABIT) habitApp.setColumn(CAT_MORNING); 
+          if (currentMode == APP_HABIT) habitApp.setColumn(CAT_MORNING);
         }
         needsRedraw = true;
       }
@@ -211,7 +209,7 @@ if (isAction) {
   }
 
   if (!isAction && isPomodoro && pomodoroApp.isActive()) {
-      handleUpdate();
+    handleUpdate();
   }
 
   if (needsRedraw) {
@@ -229,7 +227,7 @@ if (isAction) {
     needsRedraw = false;
   }
 
-  delay(10); 
+  delay(10);
 }
 
 void wipeData() {
