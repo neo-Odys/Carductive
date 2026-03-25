@@ -50,20 +50,44 @@ static void exportToCSV() {
     File fIn = SD.open(binPath, FILE_READ);
     File fOut = SD.open(csvPath, FILE_WRITE);
     if (fIn && fOut) {
+      // Zmieniony nagłówek pliku CSV na format 00:00, 01:00 itd.
       fOut.println(
-          "DayOfYear;H00;H01;H02;H03;H04;H05;H06;H07;H08;H09;H10;H11;H12;H13;"
-          "H14;H15;H16;H17;H18;H19;H20;H21;H22;H23");
+          "Date;00:00;01:00;02:00;03:00;04:00;05:00;06:00;07:00;08:00;09:00;10:"
+          "00;11:00;12:00;13:00;"
+          "14:00;15:00;16:00;17:00;18:00;19:00;20:00;21:00;22:00;23:00");
+
       uint8_t buffer[24];
       int dayCounter = 1;
+
+      int daysInMonth[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+      if (globalYear % 4 == 0 &&
+          (globalYear % 100 != 0 || globalYear % 400 == 0)) {
+        daysInMonth[1] = 29;
+      }
+
       while (fIn.available()) {
         if (fIn.read(buffer, 24) == 24) {
           bool hasData = false;
-          for (int i = 0; i < 24; i++)
+          for (int i = 0; i < 24; i++) {
             if (buffer[i] != 0) hasData = true;
+          }
           if (hasData) {
-            fOut.printf("%d;", dayCounter);
-            for (int i = 0; i < 24; i++)
+            int month = 1;
+            int day = dayCounter;
+            for (int i = 0; i < 12; i++) {
+              if (day > daysInMonth[i]) {
+                day -= daysInMonth[i];
+                month++;
+              } else {
+                break;
+              }
+            }
+
+            fOut.printf("%04d-%02d-%02d;", globalYear, month, day);
+
+            for (int i = 0; i < 24; i++) {
               fOut.printf("%d%s", buffer[i], (i == 23) ? "" : ";");
+            }
             fOut.println();
           }
         }
@@ -74,7 +98,6 @@ static void exportToCSV() {
     }
   }
 }
-
 void DayTrackApp::init() { loadForCurrentDate(); }
 
 uint16_t DayTrackApp::getCatColor(int id) {
@@ -463,19 +486,19 @@ void DayTrackApp::drawLegendScreen() {
   canvas.drawString("Backspace", 185, y);
   y += 16;
   canvas.setTextColor(WHITE);
-  canvas.drawString("1(Blu): UNI/STDY", 5, y);
-  canvas.drawString("2(Grn): PROD/WRK", 125, y);
+  canvas.drawString("1: UNI/STDY", 5, y);
+  canvas.drawString("2: PROD/WRK", 125, y);
   y += 12;
-  canvas.drawString("3(Orn): FAM/FRND", 5, y);
-  canvas.drawString("4(Pur): CAL/RUN/SPT", 125, y);
+  canvas.drawString("3: FAM/FRND", 5, y);
+  canvas.drawString("4: CAL/RUN/SPT", 125, y);
   y += 12;
-  canvas.drawString("5(Brn): ROU/CHO/TRN", 5, y);
-  canvas.drawString("6(Cyn): READ/GAM/VAC", 125, y);
+  canvas.drawString("5: ROU/CHO/TRN", 5, y);
+  canvas.drawString("6: READ/GAM/VAC", 125, y);
   y += 12;
-  canvas.drawString("7(Red): WASTE", 5, y);
-  canvas.drawString("8(Pnk): PRJ/EMB/BUS", 125, y);
+  canvas.drawString("7: WASTE", 5, y);
+  canvas.drawString("8: PRJ/EMB/BUS", 125, y);
   y += 12;
-  canvas.drawString("9(Gry): SLEEP", 5, y);
+  canvas.drawString("9: SLEEP", 5, y);
   canvas.setTextColor(COL_ACCENT);
   canvas.drawCenterString("[ Press L to return ]", 120, 126);
 }

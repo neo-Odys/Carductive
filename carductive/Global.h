@@ -11,7 +11,7 @@
 #define KEY_TAB 9
 #endif
 
-enum AppMode { APP_TODO, APP_POMODORO, APP_HABIT, APP_DAY, APP_COUNT };
+enum AppMode { APP_TODO, APP_HABIT, APP_POMODORO, APP_DAY, APP_COUNT };
 
 #define BRIGHT_HIGH 64
 #define BRIGHT_DIM 12

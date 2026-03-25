@@ -20,7 +20,6 @@ void HabitApp::init() {
   if (!SD.exists(DATA_PATH "/habits_master.csv")) {
     // --- MORNING ---
     columns[CAT_MORNING].push_back({"wake up 7:00", false});
-    columns[CAT_MORNING].push_back({"read 15min", false});
     columns[CAT_MORNING].push_back({"calendar check", false});
 
     // --- AFTERNOON ---
@@ -29,10 +28,9 @@ void HabitApp::init() {
     columns[CAT_AFTERNOON].push_back({"study deep focus", false});
 
     // --- EVENING ---
-    columns[CAT_EVENING].push_back({"udemy learn", false});
     columns[CAT_EVENING].push_back({"journal & plan next day", false});
-    columns[CAT_EVENING].push_back({"read book", false});
     columns[CAT_EVENING].push_back({"22:00 in bed", false});
+    columns[CAT_EVENING].push_back({"read book", false});
 
     saveMaster();
   } else {
