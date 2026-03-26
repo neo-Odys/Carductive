@@ -2,6 +2,7 @@
 
 #include <M5GFX.h>
 #include <SD.h>
+#include <map>
 
 #include "Global.h"
 
@@ -154,6 +155,83 @@ void HabitApp::toggleHabit() {
   }
 }
 
+void HabitApp::exportToCSV() {
+  std::vector<String> allHabits;
+  std::map<String, std::vector<int>> dailyData;
+
+  for (int i = 0; i < CAT_COUNT; i++) {
+    for (const auto& item : columns[i]) {
+      allHabits.push_back(String(item.text));
+    }
+  }
+
+  if (SD.exists(DATA_PATH "/habits_log.csv")) {
+    File fLog = SD.open(DATA_PATH "/habits_log.csv", FILE_READ);
+    if (fLog) {
+      while (fLog.available()) {
+        String line = fLog.readStringUntil('\n');
+        line.trim();
+        if (line.length() == 0) continue;
+
+        int s1 = line.indexOf(';');
+        if (s1 == -1) continue;
+        String dateStr = line.substring(0, s1);
+
+        int s2 = line.indexOf(';', s1 + 1);
+        if (s2 == -1) continue;
+
+        int s3 = line.indexOf(';', s2 + 1);
+        if (s3 == -1) continue;
+
+        int done = line.substring(s2 + 1, s3).toInt();
+        String habitName = line.substring(s3 + 1);
+
+        int hIdx = -1;
+        for (size_t i = 0; i < allHabits.size(); i++) {
+          if (allHabits[i] == habitName) {
+            hIdx = i;
+            break;
+          }
+        }
+
+        if (hIdx == -1) {
+          allHabits.push_back(habitName);
+          hIdx = allHabits.size() - 1;
+          for (auto& kv : dailyData) {
+            kv.second.push_back(0);
+          }
+        }
+
+        if (dailyData.find(dateStr) == dailyData.end()) {
+          dailyData[dateStr] = std::vector<int>(allHabits.size(), 0);
+        }
+        dailyData[dateStr][hIdx] = done;
+      }
+      fLog.close();
+    }
+  }
+
+  File fOut = SD.open(DATA_PATH "/export_habits.csv", FILE_WRITE);
+  if (fOut) {
+    fOut.print("Date");
+    for (const auto& h : allHabits) {
+      fOut.print(";");
+      fOut.print(h);
+    }
+    fOut.println();
+
+    for (const auto& kv : dailyData) {
+      fOut.print(kv.first);
+      for (int val : kv.second) {
+        fOut.print(";");
+        fOut.print(val);
+      }
+      fOut.println();
+    }
+    fOut.close();
+  }
+}
+
 void HabitApp::update() {
   if (isTyping) {
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
@@ -209,6 +287,16 @@ void HabitApp::update() {
     memset(inputBuffer, 0, sizeof(inputBuffer));
   } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
     deleteHabit();
+  } else if (M5Cardputer.Keyboard.isKeyPressed('e')) {
+    exportToCSV();
+    canvas.fillScreen(COL_BG);
+    canvas.setTextDatum(middle_center);
+    canvas.setTextColor(COL_ACCENT);
+    canvas.setTextSize(2);
+    canvas.drawString("EXPORTED TO CSV", 120, 60);
+    canvas.pushSprite(0, 0);
+    delay(1000);
+    canvas.setTextDatum(top_left);
   }
 }
 

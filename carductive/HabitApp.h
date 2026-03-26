@@ -2,8 +2,8 @@
 #define HABITAPP_H
 
 #include <Arduino.h>
-
 #include <vector>
+#include <map>
 
 enum HabitCat { CAT_MORNING, CAT_AFTERNOON, CAT_EVENING, CAT_COUNT };
 
@@ -46,6 +46,8 @@ class HabitApp {
 
   void loadDay();
   void appendHabitState(int cat, const HabitItem& item);
+  
+  void exportToCSV();
 };
 
 #endif

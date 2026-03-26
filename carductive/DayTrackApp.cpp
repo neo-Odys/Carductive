@@ -50,7 +50,6 @@ static void exportToCSV() {
     File fIn = SD.open(binPath, FILE_READ);
     File fOut = SD.open(csvPath, FILE_WRITE);
     if (fIn && fOut) {
-      // Zmieniony nagłówek pliku CSV na format 00:00, 01:00 itd.
       fOut.println(
           "Date;00:00;01:00;02:00;03:00;04:00;05:00;06:00;07:00;08:00;09:00;10:"
           "00;11:00;12:00;13:00;"
@@ -98,6 +97,7 @@ static void exportToCSV() {
     }
   }
 }
+
 void DayTrackApp::init() { loadForCurrentDate(); }
 
 uint16_t DayTrackApp::getCatColor(int id) {
@@ -195,12 +195,16 @@ const char* DayTrackApp::getCatName(int id) {
 }
 
 void DayTrackApp::changeDate(int delta) {
-  globalDay += delta;
-  int daysInMonth[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-  if (globalYear % 4 == 0 && (globalYear % 100 != 0 || globalYear % 400 == 0))
-    daysInMonth[2] = 29;
+  auto isLeap = [](int y) { return (y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)); };
+  auto getDays = [&](int m, int y) {
+    int d[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if (m == 2 && isLeap(y)) return 29;
+    return d[m];
+  };
 
-  if (globalDay > daysInMonth[globalMonth]) {
+  globalDay += delta;
+
+  if (globalDay > getDays(globalMonth, globalYear)) {
     globalDay = 1;
     globalMonth++;
     if (globalMonth > 12) {
@@ -213,7 +217,7 @@ void DayTrackApp::changeDate(int delta) {
       globalMonth = 12;
       globalYear--;
     }
-    globalDay = daysInMonth[globalMonth];
+    globalDay = getDays(globalMonth, globalYear);
   }
   saveGlobalDate();
   loadForCurrentDate();
@@ -277,7 +281,6 @@ void DayTrackApp::update() {
 
   bool stateChanged = false;
 
-  // Przewijanie godzin z automatyczną zmianą daty
   if (M5Cardputer.Keyboard.isKeyPressed(';')) {
     if (globalHour < 23) {
       globalHour++;
@@ -302,9 +305,7 @@ void DayTrackApp::update() {
   } else if (M5Cardputer.Keyboard.isKeyPressed(']')) {
     if (isDirty) saveForCurrentDate();
     changeDate(1);
-  }
-  // Obsługa kategorii
-  else if (M5Cardputer.Keyboard.isKeyPressed('1')) {
+  } else if (M5Cardputer.Keyboard.isKeyPressed('1')) {
     daySchedule[globalHour] = (daySchedule[globalHour] == 1) ? 2 : 1;
     stateChanged = true;
   } else if (M5Cardputer.Keyboard.isKeyPressed('2')) {
@@ -360,7 +361,6 @@ void DayTrackApp::update() {
 }
 
 void DayTrackApp::draw() {
-  // --- KLUCZOWA NAPRAWA: Synchronizacja daty ---
   static int lastLD = -1, lastLM = -1, lastLY = -1;
   if (lastLD != globalDay || lastLM != globalMonth || lastLY != globalYear) {
     loadForCurrentDate();
@@ -433,7 +433,6 @@ void DayTrackApp::drawTimeline() {
   canvas.setTextColor(currentCat == 0 ? COL_P4 : getCatColor(currentCat));
   canvas.drawCenterString(getCatName(currentCat), 120, 105);
 
-  // Cele dnia 1/1
   int studyCount = 0, embedCount = 0;
   for (int i = 0; i < 24; i++) {
     if (daySchedule[i] == 2) studyCount++;
