@@ -15,7 +15,7 @@ enum AppMode { APP_TODO, APP_HABIT, APP_POMODORO, APP_DAY, APP_COUNT };
 
 #define BRIGHT_HIGH 64
 #define BRIGHT_DIM 12
-#define DIM_DELAY_MS 150000
+#define DIM_DELAY_MS 60000
 
 #define COL_BG 0x10A2
 #define COL_HEADER_BG 0x0841
@@ -42,5 +42,6 @@ extern int globalYear;
 extern int globalHour;
 
 void saveGlobalDate();
+
 
 #endif
